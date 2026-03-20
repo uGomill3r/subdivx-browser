@@ -6,11 +6,25 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# Formato esperado: Título (año) [resolución] [tipo opcional] ...
-FOLDER_PATTERN = re.compile(
-    r'^(?P<title>.+?)\s\((?P<year>\d{4})\)\s\[(?P<resolution>720p|1080p|2160p)\](?:\s\[(?P<type>BluRay|WEBRip|WEB-DL)\])?',
+# Carpeta: solo título y año son requeridos
+_TITLE_YEAR_PATTERN = re.compile(
+    r'^(?P<title>.+?)\s\((?P<year>\d{4})\)',
     re.IGNORECASE,
 )
+
+# Archivo de video: resolución y tipo se leen del nombre del archivo
+_RESOLUTION_PATTERN = re.compile(r'(?P<resolution>720p|1080p|2160p)', re.IGNORECASE)
+_TYPE_PATTERN = re.compile(r'(?P<type>BluRay|BRRip|BDRip|WEBRip|WEB-DL|HDTV)', re.IGNORECASE)
+
+# Normalización de variantes al valor canónico
+_TYPE_NORMALIZE = {
+    "bluray": "BluRay",
+    "brrip":  "BluRay",
+    "bdrip":  "BluRay",
+    "webrip": "WEBRip",
+    "web-dl": "WEB-DL",
+    "hdtv":   "HDTV",
+}
 
 # Carpetas de subtítulos que se conservan
 SUBTITLE_FOLDERS = {"subtitle", "subtitles"}
@@ -22,26 +36,44 @@ class FolderInfo:
     folder_path: str
     title: str
     year: str
-    resolution: str
-    release_type: str  # BluRay / WEBRip / WEB-DL
+    resolution: str    # extraído del archivo de video principal
+    release_type: str  # extraído del archivo de video principal (BluRay / WEBRip / WEB-DL)
     videos: list[str] = field(default_factory=list)
     has_subtitle: bool = False
 
 
 def parse_folder_name(folder_name: str) -> dict | None:
     """
-    Parsea el nombre de carpeta y retorna los campos extraídos.
-    El campo [tipo] es opcional — se usa empty string si no está presente.
-    Retorna None si el formato no coincide.
+    Parsea el nombre de carpeta extrayendo solo título y año.
+    Retorna None si no se encuentra el formato Título (año).
     """
-    match = FOLDER_PATTERN.match(folder_name)
+    match = _TITLE_YEAR_PATTERN.match(folder_name)
     if not match:
         logger.debug("Carpeta sin formato reconocido: '%s'", folder_name)
         return None
-    data = match.groupdict()
-    # [tipo] es opcional, usar BluRay como valor por defecto
-    data["type"] = data.get("type") or "BluRay"
-    return data
+    return {
+        "title": match.group("title").strip(),
+        "year": match.group("year"),
+    }
+
+
+def parse_video_filename(filename: str) -> dict:
+    """
+    Extrae resolución y tipo de release del nombre del archivo de video.
+    Resolución por defecto: '1080p'. Tipo por defecto: 'BluRay'.
+    """
+    res_match = _RESOLUTION_PATTERN.search(filename)
+    type_match = _TYPE_PATTERN.search(filename)
+
+    resolution = res_match.group("resolution").lower() if res_match else "1080p"
+    raw_type = type_match.group("type").lower() if type_match else "bluray"
+    release_type = _TYPE_NORMALIZE.get(raw_type, "BluRay")
+
+    logger.debug(
+        "Archivo '%s' — resolución: %s, tipo: %s",
+        filename, resolution, release_type
+    )
+    return {"resolution": resolution, "release_type": release_type}
 
 
 def get_videos_in_folder(folder_path: str) -> list[str]:
@@ -200,6 +232,9 @@ def list_media_folders() -> list[FolderInfo]:
 
         videos = get_videos_in_folder(full_path)
 
+        # Resolución y tipo desde el primer video encontrado
+        video_data = parse_video_filename(videos[0]) if videos else {"resolution": "1080p", "release_type": "BluRay"}
+
         # Verificar si algún video ya tiene subtítulo .es.srt
         has_sub = any(subtitle_exists(full_path, v) for v in videos)
 
@@ -208,8 +243,8 @@ def list_media_folders() -> list[FolderInfo]:
             folder_path=full_path,
             title=parsed["title"],
             year=parsed["year"],
-            resolution=parsed["resolution"],
-            release_type=parsed["type"],
+            resolution=video_data["resolution"],
+            release_type=video_data["release_type"],
             videos=videos,
             has_subtitle=has_sub,
         )
@@ -236,6 +271,9 @@ def get_folder_info(folder_name: str) -> FolderInfo | None:
         return None
 
     videos = get_videos_in_folder(full_path)
+
+    # Resolución y tipo desde el primer video encontrado
+    video_data = parse_video_filename(videos[0]) if videos else {"resolution": "1080p", "release_type": "BluRay"}
     has_sub = any(subtitle_exists(full_path, v) for v in videos)
 
     info = FolderInfo(
@@ -243,8 +281,8 @@ def get_folder_info(folder_name: str) -> FolderInfo | None:
         folder_path=full_path,
         title=parsed["title"],
         year=parsed["year"],
-        resolution=parsed["resolution"],
-        release_type=parsed["type"],
+        resolution=video_data["resolution"],
+        release_type=video_data["release_type"],
         videos=videos,
         has_subtitle=has_sub,
     )
