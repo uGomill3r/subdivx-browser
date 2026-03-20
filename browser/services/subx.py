@@ -45,7 +45,11 @@ def search_subtitles(title: str, limit: int = 20) -> list[dict]:
         response = requests.get(url, headers=_get_headers(), params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
-        results = data if isinstance(data, list) else data.get("results", [])
+        # La API retorna {'items': [...], 'total': N}
+        if isinstance(data, list):
+            results = data
+        else:
+            results = data.get("items") or data.get("results", [])
         logger.info("Búsqueda '%s' — resultados: %d", title, len(results))
         return results
     except requests.exceptions.HTTPError as e:

@@ -1,28 +1,75 @@
 {% load browser_extras %}
+
 {% if criteria == "none" %}
   <div style="color:var(--text-muted); padding:1rem 0;">
     Sin resultados para <strong style="color:var(--text);">{{ folder.title }}</strong> en SubDivX.
   </div>
 
+{% elif criteria == "needs_keyword" %}
+  <!-- Sin resultados del usuario preferido: pedir keyword -->
+  <div style="
+    background: var(--surface);
+    border: 1px solid var(--accent-dim);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+  ">
+    <div style="color:var(--accent); font-family:'Syne',sans-serif; font-weight:700; margin-bottom:0.5rem;">
+      Sin resultados del usuario preferido
+    </div>
+    <div style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+      No se encontraron subtítulos del usuario configurado para
+      <strong style="color:var(--text);">{{ folder.title }}</strong>.
+      Ingresá una palabra clave para ampliar la búsqueda.
+    </div>
+
+    <form
+      hx-get="{% url 'browser:search_subtitles' folder.folder_name %}"
+      hx-target="#results-area"
+      hx-indicator="#loading-indicator"
+    >
+      <input type="hidden" name="video" value="{{ video_filename }}" />
+      <div class="d-flex gap-2 flex-wrap align-items-center">
+        <input
+          type="text"
+          name="keyword"
+          class="input-dark"
+          placeholder="Ej: latino, castellano, forzado…"
+          style="max-width:280px;"
+          autofocus
+        />
+        <button type="submit" class="btn-accent">Buscar</button>
+      </div>
+    </form>
+  </div>
+
 {% else %}
+
+  <!-- Aviso si hay subtítulo .srt sin .es (será renombrado a .en.srt al descargar) -->
+  {% if sub_status.has_plain_srt %}
+  <div style="color:var(--accent); font-size:0.82rem; margin-bottom:0.75rem;">
+    ⚠ Se encontró <strong>{{ video_filename|cut:".mp4" }}.srt</strong> —
+    será renombrado a <strong>.en.srt</strong> al descargar el español.
+  </div>
+  {% endif %}
+
+  <!-- Aviso si ya existe .es.srt -->
+  {% if sub_status.has_es_srt %}
+  <div style="color:var(--success); font-size:0.82rem; margin-bottom:0.75rem;">
+    ✓ Ya existe subtítulo en español (.es.srt). Podés reemplazarlo eligiendo uno nuevo.
+  </div>
+  {% endif %}
 
   <!-- Criterio usado -->
   <div class="section-header">Resultados</div>
-
   <div class="d-flex align-items-center gap-2 mb-3">
     <span class="criteria-badge">
       filtrado por: {{ criteria_labels|get_item:criteria }}
     </span>
     <span style="color:var(--text-muted); font-size:0.78rem;">
-      {{ results|length }} subtítulo{{ results|length|pluralize:"s" }} encontrado{{ results|length|pluralize:"s" }}
+      {{ results|length }} subtítulo{{ results|length|pluralize:"s" }}
     </span>
   </div>
-
-  {% if already_has_sub %}
-  <div style="color:var(--success); font-size:0.82rem; margin-bottom:1rem;">
-    ✓ Este video ya tiene subtítulo (.es.srt). Podés reemplazarlo eligiendo uno nuevo.
-  </div>
-  {% endif %}
 
   <!-- Lista de subtítulos -->
   {% for sub in results %}

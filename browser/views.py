@@ -1,16 +1,19 @@
+import os
 import logging
 from django.shortcuts import render
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import HttpRequest, HttpResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
 
 from browser.services.filesystem import (
     list_media_folders,
     get_folder_info,
     save_subtitle,
     subtitle_exists,
+    check_subtitle_status,
+    rename_plain_srt_to_english,
+    clean_folder,
 )
-from browser.services.subx import search_with_fallback, download_subtitle
+from browser.services.subx import search_with_fallback, search_subtitles, filter_by_user, _to_subtitle_results, download_subtitle
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +40,18 @@ def folder_detail(request: HttpRequest, folder_name: str) -> HttpResponse:
     return render(request, "browser/folder.html", {"folder": folder})
 
 
-def search_subtitles(request: HttpRequest, folder_name: str) -> HttpResponse:
+def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpResponse:
     """
     Busca subtítulos para un video seleccionado.
-    Acepta parámetros GET: video (nombre de archivo), keyword (opcional).
+    Parámetros GET: video (nombre de archivo), keyword (opcional).
+
+    Flujo:
+      - Sin keyword: busca solo por usuario preferido.
+      - Con keyword: busca por usuario preferido, luego por keyword, luego por calidad.
     Responde con HTML parcial para HTMX.
     """
+    from django.conf import settings
+
     video_filename = request.GET.get("video", "").strip()
     keyword = request.GET.get("keyword", "").strip()
 
@@ -57,13 +66,30 @@ def search_subtitles(request: HttpRequest, folder_name: str) -> HttpResponse:
         logger.warning("Video '%s' no pertenece a la carpeta '%s'", video_filename, folder_name)
         return HttpResponse("<p class='text-danger'>Video inválido.</p>", status=400)
 
-    already_has_sub = subtitle_exists(folder.folder_path, video_filename)
+    sub_status = check_subtitle_status(folder.folder_path, video_filename)
+    preferred_user = settings.SUBDIVX_PREFERRED_USER
 
-    results, criteria = search_with_fallback(
-        title=folder.title,
-        release_type=folder.release_type,
-        keyword=keyword,
-    )
+    # Búsqueda: sin keyword → solo por usuario preferido
+    if not keyword:
+        all_results = search_subtitles(folder.title)
+        if not all_results:
+            results, criteria = [], "none"
+        else:
+            by_user = filter_by_user(all_results, preferred_user) if preferred_user else []
+            if by_user:
+                results = _to_subtitle_results(by_user, "user")
+                criteria = "user"
+            else:
+                # Sin resultados del usuario → pedir keyword al usuario
+                results = []
+                criteria = "needs_keyword"
+    else:
+        # Con keyword → cascada completa
+        results, criteria = search_with_fallback(
+            title=folder.title,
+            release_type=folder.release_type,
+            keyword=keyword,
+        )
 
     logger.info(
         "Búsqueda completada — video: '%s' — criterio: %s — resultados: %d",
@@ -75,13 +101,14 @@ def search_subtitles(request: HttpRequest, folder_name: str) -> HttpResponse:
         "video_filename": video_filename,
         "results": results,
         "criteria": criteria,
-        "already_has_sub": already_has_sub,
+        "sub_status": sub_status,
         "criteria_labels": {
             "user": "usuario preferido",
             "keyword": "palabra clave",
             "quality": "tipo de release",
             "all": "todos los disponibles",
             "none": "sin resultados",
+            "needs_keyword": "sin resultados del usuario preferido",
         },
     }
     return render(request, "browser/partials/results.html", context)
@@ -90,7 +117,8 @@ def search_subtitles(request: HttpRequest, folder_name: str) -> HttpResponse:
 @require_http_methods(["POST"])
 def download_and_save(request: HttpRequest, folder_name: str) -> HttpResponse:
     """
-    Descarga un subtítulo y lo guarda con el nombre correcto.
+    Descarga un subtítulo, renombra .srt a .en.srt si existe,
+    limpia la carpeta y guarda el nuevo .es.srt.
     Parámetros POST: subtitle_id, video_filename.
     """
     subtitle_id = request.POST.get("subtitle_id", "").strip()
@@ -107,6 +135,13 @@ def download_and_save(request: HttpRequest, folder_name: str) -> HttpResponse:
         logger.warning("Video '%s' inválido para carpeta '%s'", video_filename, folder_name)
         return HttpResponse("<p class='text-danger'>Video inválido.</p>", status=400)
 
+    # Renombrar .srt sin .es a .en.srt si existe
+    renamed_to_english = rename_plain_srt_to_english(folder.folder_path, video_filename)
+
+    # Limpiar carpeta antes de guardar
+    deleted_files = clean_folder(folder.folder_path, video_filename)
+
+    # Descargar subtítulo
     content = download_subtitle(subtitle_id)
     if not content:
         return HttpResponse(
@@ -114,6 +149,7 @@ def download_and_save(request: HttpRequest, folder_name: str) -> HttpResponse:
             status=502
         )
 
+    # Guardar .es.srt
     try:
         saved_path = save_subtitle(folder.folder_path, video_filename, content)
     except OSError:
@@ -122,11 +158,12 @@ def download_and_save(request: HttpRequest, folder_name: str) -> HttpResponse:
             status=500
         )
 
-    import os
     saved_filename = os.path.basename(saved_path)
-    logger.info("Subtítulo guardado exitosamente: '%s'", saved_filename)
+    logger.info("Proceso completo para '%s' — guardado: '%s'", video_filename, saved_filename)
 
     return render(request, "browser/partials/success.html", {
         "saved_filename": saved_filename,
         "folder_name": folder_name,
+        "renamed_to_english": renamed_to_english,
+        "deleted_files": deleted_files,
     })
