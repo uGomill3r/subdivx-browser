@@ -14,7 +14,7 @@
     padding: 1.25rem 1.5rem;
     margin-bottom: 1rem;
   ">
-    <div style="color:var(--accent); font-family:'Syne',sans-serif; font-weight:700; margin-bottom:0.5rem;">
+    <div style="color:var(--accent); font-family:'Inter',sans-serif; font-weight:700; margin-bottom:0.5rem;">
       Sin resultados del usuario preferido
     </div>
     <div style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
@@ -23,6 +23,17 @@
       Ingresá una palabra clave para ampliar la búsqueda.
     </div>
     {% include "browser/partials/keyword_form.html" %}
+    <div style="margin-top:0.75rem;">
+      <button
+        class="btn-outline"
+        style="font-size:0.8rem;"
+        hx-get="{{ request.path }}?video={{ video_filename|urlencode }}&show_all=1"
+        hx-target="#results-area"
+        hx-indicator="#loading-indicator"
+      >
+        Ver todos
+      </button>
+    </div>
   </div>
 
 {% else %}
