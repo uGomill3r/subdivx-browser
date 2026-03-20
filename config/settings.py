@@ -48,11 +48,14 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "browser" / "static"]
+
 
 # Configuración de la app
 SUBX_API_KEY = os.getenv("SUBX_API_KEY", "")
 SUBDIVX_PREFERRED_USER = os.getenv("SUBDIVX_PREFERRED_USER", "")
 MEDIA_ROOT_PATH = os.getenv("MEDIA_ROOT", "/media/videos")
+
 
 VIDEO_EXTENSIONS = [".mp4"]
 

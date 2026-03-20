@@ -1,10 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <!-- Favicon SVG inline -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230d0f14'/><text x='3' y='24' font-family='Inter,Arial,sans-serif' font-size='20' font-weight='800' fill='%23d4d8e8'>S</text><text x='17' y='24' font-family='Inter,Arial,sans-serif' font-size='16' font-weight='700' font-style='italic' fill='%23e8c840'>x</text></svg>">
-  <link rel="apple-touch-icon" href="data:,">
+  <!-- Apple touch icon para iOS/iPadOS -->
+  <link rel="apple-touch-icon" href="{% static 'browser/apple-touch-icon.png' %}">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}SubDivX Browser{% endblock %}</title>
 
@@ -169,6 +171,14 @@
       outline: none;
       border-color: var(--accent);
       background: var(--surface);
+    }
+    select.input-dark {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7294' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      padding-right: 2rem;
+      cursor: pointer;
     }
 
     /* Resultados de subtítulos */

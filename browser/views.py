@@ -22,7 +22,7 @@ from browser.services.subx import (
     search_with_fallback,
     download_subtitle,
 )
-from browser.services.config import load_config, save_config, get_preferred_user
+from browser.services.config import load_config, save_config, get_preferred_user, get_media_root_options
 logger = logging.getLogger(__name__)
 
 
@@ -377,4 +377,5 @@ def settings_view(request: HttpRequest) -> HttpResponse:
         "config": config,
         "success": success,
         "errors": errors,
+        "media_root_options": get_media_root_options(),
     })

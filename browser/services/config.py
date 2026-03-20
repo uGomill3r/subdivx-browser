@@ -24,6 +24,7 @@ def _settings_defaults() -> dict:
         "media_root": settings.MEDIA_ROOT_PATH,
         "preferred_user": settings.SUBDIVX_PREFERRED_USER,
         "preferred_words": [],
+        "media_root_options": [],   # lista de rutas predefinidas para el select
     }
 
 
@@ -43,8 +44,9 @@ def load_config() -> dict:
             data = json.load(f)
         # Mezclar con defaults para keys faltantes
         config = {**defaults, **data}
-        logger.info("config.json cargado — media_root: '%s', preferred_user: '%s', palabras: %d",
-                    config["media_root"], config["preferred_user"], len(config["preferred_words"]))
+        logger.info("config.json cargado — media_root: '%s', preferred_user: '%s', palabras: %d, opciones: %d",
+                    config["media_root"], config["preferred_user"],
+                    len(config["preferred_words"]), len(config["media_root_options"]))
         return config
     except (json.JSONDecodeError, OSError) as e:
         logger.error("Error al leer config.json: %s — usando defaults", e)
@@ -53,13 +55,16 @@ def load_config() -> dict:
 
 def save_config(media_root: str, preferred_user: str, preferred_words: list[str]) -> bool:
     """
-    Persiste la configuración en config.json.
+    Persiste la configuración en config.json preservando media_root_options.
     Retorna True si se guardó correctamente.
     """
+    # Preservar media_root_options — no se editan desde la UI
+    existing = load_config()
     data = {
         "media_root": media_root.strip(),
         "preferred_user": preferred_user.strip(),
         "preferred_words": [w.strip() for w in preferred_words if w.strip()],
+        "media_root_options": existing.get("media_root_options", []),
     }
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -70,6 +75,12 @@ def save_config(media_root: str, preferred_user: str, preferred_words: list[str]
     except OSError as e:
         logger.error("Error al guardar config.json: %s", e)
         return False
+
+
+def get_media_root_options() -> list[str]:
+    """Retorna las rutas predefinidas para el select de biblioteca."""
+    config = load_config()
+    return config.get("media_root_options", [])
 
 
 def get_media_root() -> str:

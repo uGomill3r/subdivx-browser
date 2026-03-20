@@ -61,7 +61,11 @@
       <div style="flex:1; min-width:0;">
         <div style="font-size:0.9rem; font-weight:500;">{{ sub.title }}</div>
         <div class="subtitle-uploader">↑ {{ sub.uploader_name }}</div>
-        <div class="subtitle-desc" title="{{ sub.description }}">{{ sub.description }}</div>
+        <div class="subtitle-desc"
+          onclick="showDesc(this)"
+          title="{{ sub.description }}"
+          style="cursor:pointer;"
+        >{{ sub.description }}</div>
         <div class="subtitle-meta">
           {{ sub.posted_at }} &nbsp;·&nbsp; {{ sub.downloads }} descargas
           {% if sub.matched_by == "user" %}
@@ -105,5 +109,48 @@
       {% include "browser/partials/keyword_form.html" %}
     </div>
   </div>
+
+  <!-- Modal de descripción completa -->
+  <div id="desc-modal" style="
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.6);
+    z-index:100;
+    padding:1rem;
+    align-items:center;
+    justify-content:center;
+  " onclick="this.style.display='none'">
+    <div style="
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:1.25rem 1.5rem;
+      max-width:520px;
+      width:100%;
+      max-height:80vh;
+      overflow-y:auto;
+    " onclick="event.stopPropagation()">
+      <div style="font-family:'Inter',sans-serif; font-weight:700; font-size:0.85rem; color:var(--text-muted); margin-bottom:0.75rem; text-transform:uppercase; letter-spacing:0.08em;">
+        Descripción
+      </div>
+      <div id="desc-modal-text" style="font-size:0.88rem; line-height:1.6; white-space:pre-wrap;"></div>
+      <div style="margin-top:1.25rem; text-align:right;">
+        <button type="button" class="btn-outline" style="font-size:0.82rem;" onclick="document.getElementById('desc-modal').style.display='none'">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showDesc(el) {
+      const text = el.getAttribute('title');
+      if (!text) return;
+      document.getElementById('desc-modal-text').textContent = text;
+      const modal = document.getElementById('desc-modal');
+      modal.style.display = 'flex';
+    }
+  </script>
 
 {% endif %}

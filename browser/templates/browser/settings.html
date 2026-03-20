@@ -60,15 +60,29 @@
     <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem;">
       Carpeta raíz donde están las películas/series
     </label>
-    <input
-      type="text"
-      name="media_root"
-      value="{{ config.media_root }}"
-      class="input-dark"
-      placeholder="/mnt/HDD/Descargas"
-      spellcheck="false"
-      autocomplete="off"
-    />
+
+    {% if media_root_options %}
+      <select name="media_root" class="input-dark">
+        {% for option in media_root_options %}
+          <option value="{{ option }}" {% if option == config.media_root %}selected{% endif %}>
+            {{ option }}
+          </option>
+        {% endfor %}
+        {% if config.media_root and config.media_root not in media_root_options %}
+          <option value="{{ config.media_root }}" selected>{{ config.media_root }}</option>
+        {% endif %}
+      </select>
+    {% else %}
+      <input
+        type="text"
+        name="media_root"
+        value="{{ config.media_root }}"
+        class="input-dark"
+        placeholder="/mnt/HDD/Descargas"
+        spellcheck="false"
+        autocomplete="off"
+      />
+    {% endif %}
   </div>
 
   <!-- Usuario preferido -->
