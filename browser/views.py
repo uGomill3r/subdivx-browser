@@ -20,7 +20,7 @@ from browser.services.subx import (
     search_with_fallback,
     download_subtitle,
 )
-
+from browser.services.config import load_config, save_config, get_preferred_user
 logger = logging.getLogger(__name__)
 
 
@@ -100,7 +100,7 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
         return HttpResponse("<p class='text-danger'>Video inválido.</p>", status=400)
 
     sub_status = check_subtitle_status(folder.folder_path, video_filename)
-    preferred_user = settings.SUBDIVX_PREFERRED_USER
+    preferred_user = get_preferred_user()
 
     if not keyword:
         # Búsqueda solo dentro del usuario preferido con cascada tipo+resolución
@@ -214,4 +214,56 @@ def download_and_save(request: HttpRequest, folder_name: str) -> HttpResponse:
         "folder_name": folder_name,
         "renamed_to_english": renamed_to_english,
         "deleted_files": deleted_files,
+    })
+
+
+@require_http_methods(["GET", "POST"])
+def settings_view(request: HttpRequest) -> HttpResponse:
+    """
+    Vista de configuración: permite cambiar la ruta de la biblioteca
+    y las palabras del filtro por defecto.
+    GET: muestra el formulario con la config actual.
+    POST: valida y guarda la nueva configuración.
+    """
+    success = False
+    errors = []
+
+    if request.method == "POST":
+        media_root = request.POST.get("media_root", "").strip()
+        preferred_user = request.POST.get("preferred_user", "").strip()
+        words_raw = request.POST.get("preferred_words", "").strip()
+        preferred_words = [w.strip() for w in words_raw.splitlines() if w.strip()]
+
+        # Validar que la ruta exista
+        if not media_root:
+            errors.append("La ruta de la biblioteca no puede estar vacía.")
+        elif not os.path.isdir(media_root):
+            errors.append(f"La ruta '{media_root}' no existe o no es una carpeta.")
+
+        if not errors:
+            ok = save_config(media_root, preferred_user, preferred_words)
+            if ok:
+                success = True
+                logger.info(
+                    "Configuración guardada — media_root: '%s', preferred_user: '%s', palabras: %d",
+                    media_root, preferred_user, len(preferred_words)
+                )
+            else:
+                errors.append("Error al guardar la configuración. Revisá los permisos del archivo.")
+                logger.error("Fallo al guardar config.json desde la vista de settings")
+
+        config = {
+            "media_root": media_root,
+            "preferred_user": preferred_user,
+            "preferred_words": preferred_words,
+        }
+    else:
+        config = load_config()
+        # preferred_words es lista, la mostramos como texto línea por línea en el textarea
+        logger.info("Vista de configuración cargada")
+
+    return render(request, "browser/settings.html", {
+        "config": config,
+        "success": success,
+        "errors": errors,
     })

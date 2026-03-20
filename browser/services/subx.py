@@ -2,6 +2,7 @@ import logging
 import requests
 from dataclasses import dataclass
 from django.conf import settings
+from browser.services.config import get_preferred_user
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +164,7 @@ def search_with_fallback(
 
     Retorna (lista_de_resultados, criterio_usado).
     """
-    preferred_user = settings.SUBDIVX_PREFERRED_USER
+    preferred_user = get_preferred_user()
     all_results = search_subtitles(title)
 
     if not all_results:

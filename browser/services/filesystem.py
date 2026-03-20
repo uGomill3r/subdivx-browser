@@ -3,6 +3,7 @@ import re
 import logging
 from dataclasses import dataclass, field
 from django.conf import settings
+from browser.services.config import get_media_root
 
 logger = logging.getLogger(__name__)
 
@@ -206,7 +207,7 @@ def list_media_folders() -> list[FolderInfo]:
     Lista todas las carpetas en MEDIA_ROOT_PATH con formato válido.
     Retorna lista de FolderInfo ordenada por título.
     """
-    media_root = settings.MEDIA_ROOT_PATH
+    media_root = get_media_root()
 
     try:
         entries = os.listdir(media_root)
@@ -258,7 +259,7 @@ def get_folder_info(folder_name: str) -> FolderInfo | None:
     """
     Retorna FolderInfo para una carpeta específica por su nombre.
     """
-    media_root = settings.MEDIA_ROOT_PATH
+    media_root = get_media_root()
     full_path = os.path.join(media_root, folder_name)
 
     if not os.path.isdir(full_path):

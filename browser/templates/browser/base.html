@@ -11,9 +11,9 @@
   <!-- Google Fonts: carga no bloqueante -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Syne:wght@800&family=DM+Mono:wght@300;400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
   <noscript>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400;500&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Syne:wght@800&family=DM+Mono:wght@300;400;500&display=swap" />
   </noscript>
 
   <!-- Bootstrap 5 -->
@@ -93,9 +93,10 @@
       color: var(--text);
     }
     .folder-title {
-      font-family: 'Syne', sans-serif;
+      font-family: 'Inter', sans-serif;
       font-weight: 700;
       font-size: 1rem;
+      line-height: 1.4;
     }
     .folder-meta {
       color: var(--text-muted);
@@ -248,6 +249,17 @@
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Ícono de configuración en topbar */
+    .topbar-settings {
+      margin-left: auto;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      text-decoration: none;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    .topbar-settings:hover { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -256,6 +268,7 @@
     <a href="{% url 'browser:index' %}" class="topbar-brand">
       SUBDIVX <span>/ browser</span>
     </a>
+    <a href="{% url 'browser:settings' %}" class="topbar-settings" title="Configuración">⚙</a>
   </nav>
 
   <main class="main-content">
