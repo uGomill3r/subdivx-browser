@@ -116,7 +116,10 @@
     <input type="hidden" name="preferred_words" id="words-hidden" value="{{ config.preferred_words_text }}" />
   </div>
 
-  <button type="submit" class="btn-accent">Guardar configuración</button>
+  <div style="display:flex; gap:0.75rem; align-items:center;">
+    <button type="submit" class="btn-accent">Guardar configuración</button>
+    <a href="{% url 'browser:index' %}" class="btn-outline" style="font-size:0.85rem;">Cancelar</a>
+  </div>
 
 </form>
 
