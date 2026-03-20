@@ -137,10 +137,31 @@ Título (año) [resolución] [tipo opcional] ...
 
 ## Búsqueda de subtítulos (cascada)
 
-1. Usuario preferido + tipo + resolución
-2. Usuario preferido + tipo
-3. Usuario preferido (sin filtros)
-4. → Solicita palabra clave al usuario
-5. Palabra clave en descripción
-6. Tipo + resolución (sin usuario)
-7. Todos los disponibles
+### Sin keyword (búsqueda inicial automática):
+1. Usuario preferido + tipo + resolución + palabras preferidas (si están configuradas)
+2. Usuario preferido + tipo + resolución
+3. Usuario preferido + tipo
+4. Usuario preferido (sin filtros)
+5. → Si no hay resultados: muestra formulario de keyword
+
+### Con keyword:
+6. Palabra clave en descripción
+7. Tipo + resolución (sin usuario)
+8. Todos los disponibles
+
+## Configuración desde la interfaz
+
+La app incluye una vista de configuración accesible desde el ícono ⚙ en la barra superior (`/settings/`). Permite cambiar sin reiniciar el servicio:
+
+- **Ruta de la biblioteca**: carpeta raíz donde están las películas/series
+- **Usuario preferido**: usuario de SubDivX priorizado en la búsqueda inicial
+- **Palabras del filtro inicial**: términos adicionales que se aplican sobre los resultados del usuario preferido (ej: `LATINO`, `ESPAÑOL`)
+
+Los cambios se guardan en `config.json` en la raíz del proyecto y tienen prioridad sobre las variables del `.env`. Si `config.json` no existe, se usan los valores del `.env`.
+
+## Lógica al descargar un subtítulo
+
+1. Si existe `video.srt` → renombrar a `video.en.srt`
+2. Limpiar carpeta: eliminar todo excepto `.mp4`, `.srt` y carpetas `subtitle/subtitles`
+3. Descargar subtítulo de SubX API
+4. Guardar como `video.es.srt`
