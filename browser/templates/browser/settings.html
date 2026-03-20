@@ -101,8 +101,7 @@
       rows="5"
       placeholder="BluRay&#10;1080p&#10;WEBRip"
       spellcheck="false"
-    >{% for word in config.preferred_words %}{{ word }}
-{% endfor %}</textarea>
+    >{{ config.preferred_words|join:"\n" }}</textarea>
   </div>
 
   <button type="submit" class="btn-accent">Guardar configuración</button>
