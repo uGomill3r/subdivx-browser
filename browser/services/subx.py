@@ -72,7 +72,7 @@ def filter_by_user(results: list[dict], username: str) -> list[dict]:
     """Filtra resultados por uploader preferido."""
     filtered = [
         r for r in results
-        if r.get("uploader_name", "").lower() == username.lower()
+        if (r.get("uploader_name") or "").lower() == username.lower()
     ]
     logger.info("Filtro por usuario '%s' — encontrados: %d", username, len(filtered))
     return filtered
@@ -83,7 +83,7 @@ def filter_by_quality(results: list[dict], release_type: str) -> list[dict]:
     keywords = QUALITY_KEYWORDS.get(release_type, [release_type.lower()])
     filtered = [
         r for r in results
-        if any(kw in r.get("description", "").lower() for kw in keywords)
+        if any(kw in (r.get("description") or "").lower() for kw in keywords)
     ]
     logger.info("Filtro por tipo '%s' — encontrados: %d", release_type, len(filtered))
     return filtered
@@ -94,7 +94,7 @@ def filter_by_resolution(results: list[dict], resolution: str) -> list[dict]:
     keywords = RESOLUTION_KEYWORDS.get(resolution.lower(), [resolution.lower()])
     filtered = [
         r for r in results
-        if any(kw in r.get("description", "").lower() for kw in keywords)
+        if any(kw in (r.get("description") or "").lower() for kw in keywords)
     ]
     logger.info("Filtro por resolución '%s' — encontrados: %d", resolution, len(filtered))
     return filtered
@@ -105,7 +105,7 @@ def filter_by_keyword(results: list[dict], keyword: str) -> list[dict]:
     kw = keyword.lower()
     filtered = [
         r for r in results
-        if kw in r.get("description", "").lower()
+        if kw in (r.get("description") or "").lower()
     ]
     logger.info("Filtro por keyword '%s' — encontrados: %d", keyword, len(filtered))
     return filtered
