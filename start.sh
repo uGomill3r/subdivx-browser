@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 gunicorn config.wsgi:application \
   --workers 1 \
   --threads 1 \
-  --bind 0.0.0.0:8000 \
+  --bind 0.0.0.0:8001 \
   --timeout 60 \
   --access-logfile - \
   --error-logfile - \
