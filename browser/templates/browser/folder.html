@@ -24,68 +24,125 @@
 
 <hr style="border-color:var(--border); margin: 1.25rem 0;" />
 
-<!-- Formulario de búsqueda -->
-<form id="search-form"
-      hx-get="{% url 'browser:search_subtitles' folder.folder_name %}"
-      hx-target="#results-area"
-      hx-indicator="#loading-indicator"
-      hx-trigger="submit">
+{% if folder.videos %}
 
-  {% csrf_token %}
+  <div class="section-header">Archivo de video</div>
 
-  <!-- Selector de video -->
-  <div class="mb-3">
-    <div class="section-header">Archivo de video</div>
-
-    {% if folder.videos %}
-      {% for video in folder.videos %}
-      <label class="folder-card mb-2" style="cursor:pointer;">
-        <input type="radio" name="video" value="{{ video }}"
-               style="accent-color: var(--accent);"
-               {% if folder.videos|length == 1 %}checked{% endif %} />
-        <div style="flex:1; min-width:0;">
-          <div style="font-size:0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-            {{ video }}
-          </div>
-          {% if folder.has_subtitle %}
-            <div style="font-size:0.75rem; color:var(--success); margin-top:0.2rem;">✓ ya tiene subtítulo</div>
-          {% endif %}
-        </div>
-      </label>
-      {% endfor %}
-    {% else %}
-      <p style="color:var(--text-muted);">No se encontraron archivos .mp4 en esta carpeta.</p>
-    {% endif %}
-  </div>
-
-  <!-- Keyword opcional -->
-  <div class="mb-3">
-    <div class="section-header">Palabra clave (opcional)</div>
-    <input
-      type="text"
-      name="keyword"
-      class="input-dark"
-      placeholder="Ej: 'forzado', 'SDH', nombre de quien lo subió…"
-      style="max-width:400px;"
-    />
-    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.4rem;">
-      Se usa como filtro de descripción si no hay resultados del usuario preferido.
+  {% if folder.videos|length == 1 %}
+    <!-- Un solo video: sin pestañas, búsqueda directa -->
+    <div class="folder-card mb-3" style="cursor:default;">
+      <div style="font-size:0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+        {{ folder.videos.0 }}
+      </div>
+      {% if folder.has_subtitle %}
+        <span class="badge-sub-ok">✓ sub</span>
+      {% endif %}
     </div>
+
+  {% else %}
+    <!-- Múltiples videos: pestañas -->
+    <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+      {% for video in folder.videos %}
+      <button
+        class="tab-btn {% if forloop.first %}tab-active{% endif %}"
+        data-video="{{ video }}"
+        onclick="selectTab(this)"
+        title="{{ video }}"
+      >
+        Video {{ forloop.counter }}
+        {% if folder.has_subtitle %}
+          <span style="color:var(--success); margin-left:0.3rem;">●</span>
+        {% endif %}
+      </button>
+      {% endfor %}
+    </div>
+
+    <!-- Nombre completo del video activo -->
+    <div id="active-video-name" style="
+      background:var(--surface-2);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:0.5rem 0.85rem;
+      font-size:0.82rem;
+      color:var(--text-muted);
+      margin-bottom:1.25rem;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    ">{{ folder.videos.0 }}</div>
+
+  {% endif %}
+
+  <!-- Indicador de carga -->
+  <div id="loading-indicator" class="htmx-indicator mb-2">
+    <span>⟳ Buscando en SubDivX…</span>
   </div>
 
-  <!-- Botón buscar -->
-  <button type="submit" class="btn-accent" {% if not folder.videos %}disabled{% endif %}>
-    Buscar subtítulos
-  </button>
+  <!-- Área de resultados -->
+  <div id="results-area"></div>
 
-</form>
+{% else %}
+  <p style="color:var(--text-muted);">No se encontraron archivos .mp4 en esta carpeta.</p>
+{% endif %}
 
-<!-- Indicador de carga -->
-<div id="loading-indicator" class="htmx-indicator mt-3">
-  <span>⟳ Buscando en SubDivX…</span>
-</div>
+<style>
+  .tab-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: var(--radius);
+    padding: 0.4rem 0.9rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .tab-btn:hover {
+    border-color: var(--accent-dim);
+    color: var(--text);
+  }
+  .tab-active {
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
+    background: var(--surface-2);
+  }
+</style>
 
-<!-- Área de resultados (HTMX la reemplaza) -->
-<div id="results-area" class="mt-4"></div>
+<script>
+  const searchUrl = "{% url 'browser:search_subtitles' folder.folder_name %}";
+
+  function triggerSearch(video) {
+    const url = searchUrl + "?video=" + encodeURIComponent(video);
+    htmx.ajax("GET", url, {
+      target: "#results-area",
+      indicator: "#loading-indicator",
+    });
+  }
+
+  function selectTab(btn) {
+    // Actualizar estado visual de pestañas
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("tab-active"));
+    btn.classList.add("tab-active");
+
+    // Mostrar nombre completo del video
+    const nameEl = document.getElementById("active-video-name");
+    if (nameEl) nameEl.textContent = btn.dataset.video;
+
+    // Limpiar resultados anteriores y buscar
+    document.getElementById("results-area").innerHTML = "";
+    triggerSearch(btn.dataset.video);
+  }
+
+  // Búsqueda automática al cargar
+  document.addEventListener("DOMContentLoaded", function() {
+    {% if folder.videos|length == 1 %}
+      triggerSearch("{{ folder.videos.0 }}");
+    {% else %}
+      const firstTab = document.querySelector(".tab-btn");
+      if (firstTab) triggerSearch(firstTab.dataset.video);
+    {% endif %}
+  });
+</script>
 
 {% endblock %}
