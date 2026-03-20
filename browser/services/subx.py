@@ -7,11 +7,18 @@ logger = logging.getLogger(__name__)
 
 SUBX_BASE_URL = "https://subx-api.duckdns.org/api"
 
-# Palabras clave de calidad para fallback
+# Palabras clave por tipo de release
 QUALITY_KEYWORDS = {
-    "BluRay": ["bluray", "blu-ray", "bdrip", "bluray"],
+    "BluRay": ["bluray", "blu-ray", "bdrip", "brip"],
     "WEBRip": ["webrip", "web-rip"],
     "WEB-DL": ["webdl", "web-dl", "web dl"],
+}
+
+# Palabras clave por resolución
+RESOLUTION_KEYWORDS = {
+    "720p":  ["720p", "720"],
+    "1080p": ["1080p", "1080", "fhd"],
+    "2160p": ["2160p", "2160", "4k", "uhd"],
 }
 
 
@@ -23,7 +30,7 @@ class SubtitleResult:
     uploader_name: str
     posted_at: str
     downloads: int
-    matched_by: str  # 'user' | 'keyword' | 'quality'
+    matched_by: str  # criterio usado para encontrarlo
 
 
 def _get_headers() -> dict:
@@ -70,6 +77,28 @@ def filter_by_user(results: list[dict], username: str) -> list[dict]:
     return filtered
 
 
+def filter_by_quality(results: list[dict], release_type: str) -> list[dict]:
+    """Filtra resultados por tipo de release (BluRay, WEBRip, WEB-DL)."""
+    keywords = QUALITY_KEYWORDS.get(release_type, [release_type.lower()])
+    filtered = [
+        r for r in results
+        if any(kw in r.get("description", "").lower() for kw in keywords)
+    ]
+    logger.info("Filtro por tipo '%s' — encontrados: %d", release_type, len(filtered))
+    return filtered
+
+
+def filter_by_resolution(results: list[dict], resolution: str) -> list[dict]:
+    """Filtra resultados por resolución (720p, 1080p, 2160p)."""
+    keywords = RESOLUTION_KEYWORDS.get(resolution.lower(), [resolution.lower()])
+    filtered = [
+        r for r in results
+        if any(kw in r.get("description", "").lower() for kw in keywords)
+    ]
+    logger.info("Filtro por resolución '%s' — encontrados: %d", resolution, len(filtered))
+    return filtered
+
+
 def filter_by_keyword(results: list[dict], keyword: str) -> list[dict]:
     """Filtra resultados cuya descripción contiene la keyword."""
     kw = keyword.lower()
@@ -81,28 +110,56 @@ def filter_by_keyword(results: list[dict], keyword: str) -> list[dict]:
     return filtered
 
 
-def filter_by_quality(results: list[dict], release_type: str) -> list[dict]:
-    """Filtra resultados por tipo de release (BluRay, WEBRip, WEB-DL)."""
-    keywords = QUALITY_KEYWORDS.get(release_type, [release_type.lower()])
-    filtered = [
-        r for r in results
-        if any(kw in r.get("description", "").lower() for kw in keywords)
-    ]
-    logger.info("Filtro por calidad '%s' — encontrados: %d", release_type, len(filtered))
-    return filtered
+def search_by_preferred_user(
+    all_results: list[dict],
+    preferred_user: str,
+    release_type: str,
+    resolution: str,
+) -> tuple[list[SubtitleResult], str] | None:
+    """
+    Búsqueda en cascada dentro del usuario preferido:
+      1. usuario + tipo + resolución
+      2. usuario + tipo
+      3. usuario (sin filtros adicionales)
+
+    Retorna (resultados, criterio) o None si no hay resultados del usuario.
+    """
+    by_user = filter_by_user(all_results, preferred_user)
+    if not by_user:
+        logger.info("Sin resultados del usuario preferido '%s'", preferred_user)
+        return None
+
+    # 1. usuario + tipo + resolución
+    by_type_res = filter_by_resolution(filter_by_quality(by_user, release_type), resolution)
+    if by_type_res:
+        logger.info("Criterio: usuario + tipo + resolución — resultados: %d", len(by_type_res))
+        return _to_subtitle_results(by_type_res, "user+type+res"), "user+type+res"
+
+    # 2. usuario + tipo
+    by_type = filter_by_quality(by_user, release_type)
+    if by_type:
+        logger.info("Criterio: usuario + tipo — resultados: %d", len(by_type))
+        return _to_subtitle_results(by_type, "user+type"), "user+type"
+
+    # 3. usuario sin filtros adicionales
+    logger.info("Criterio: usuario preferido (sin filtros) — resultados: %d", len(by_user))
+    return _to_subtitle_results(by_user, "user"), "user"
 
 
 def search_with_fallback(
     title: str,
     release_type: str,
+    resolution: str,
     keyword: str = "",
 ) -> tuple[list[SubtitleResult], str]:
     """
-    Búsqueda en cascada:
-      1. Por usuario preferido (SUBDIVX_PREFERRED_USER)
-      2. Por keyword en descripción
-      3. Por tipo de release (BluRay / WEBRip / WEB-DL)
-      4. Todos los resultados sin filtro
+    Búsqueda en cascada completa (se usa cuando hay keyword):
+      1. usuario + tipo + resolución
+      2. usuario + tipo
+      3. usuario (sin filtros)
+      4. keyword en descripción
+      5. tipo + resolución (sin usuario)
+      6. todos los resultados
 
     Retorna (lista_de_resultados, criterio_usado).
     """
@@ -113,25 +170,25 @@ def search_with_fallback(
         logger.warning("Sin resultados en SubX para: '%s'", title)
         return [], "none"
 
-    # 1. Filtro por usuario preferido
+    # Pasos 1-3: cascada dentro del usuario preferido
     if preferred_user:
-        by_user = filter_by_user(all_results, preferred_user)
-        if by_user:
-            return _to_subtitle_results(by_user, "user"), "user"
+        user_result = search_by_preferred_user(all_results, preferred_user, release_type, resolution)
+        if user_result:
+            return user_result
 
-    # 2. Filtro por keyword personalizada
+    # 4. Keyword en descripción
     if keyword:
         by_keyword = filter_by_keyword(all_results, keyword)
         if by_keyword:
             return _to_subtitle_results(by_keyword, "keyword"), "keyword"
 
-    # 3. Filtro por calidad/tipo
-    by_quality = filter_by_quality(all_results, release_type)
-    if by_quality:
-        return _to_subtitle_results(by_quality, "quality"), "quality"
+    # 5. Tipo + resolución sin usuario
+    by_type_res = filter_by_resolution(filter_by_quality(all_results, release_type), resolution)
+    if by_type_res:
+        return _to_subtitle_results(by_type_res, "type+res"), "type+res"
 
-    # 4. Sin filtro — todos los resultados
-    logger.info("Sin filtros aplicables, retornando todos los resultados: %d", len(all_results))
+    # 6. Todos los resultados
+    logger.info("Sin filtros aplicables, retornando todos: %d", len(all_results))
     return _to_subtitle_results(all_results, "all"), "all"
 
 

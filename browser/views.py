@@ -3,6 +3,7 @@ import logging
 from django.shortcuts import render
 from django.http import HttpRequest, HttpResponse
 from django.views.decorators.http import require_http_methods
+from django.conf import settings
 
 from browser.services.filesystem import (
     list_media_folders,
@@ -13,7 +14,12 @@ from browser.services.filesystem import (
     rename_plain_srt_to_english,
     clean_folder,
 )
-from browser.services.subx import search_with_fallback, search_subtitles, filter_by_user, _to_subtitle_results, download_subtitle
+from browser.services.subx import (
+    search_subtitles,
+    search_by_preferred_user,
+    search_with_fallback,
+    download_subtitle,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +51,17 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
     Busca subtítulos para un video seleccionado.
     Parámetros GET: video (nombre de archivo), keyword (opcional).
 
-    Flujo:
-      - Sin keyword: busca solo por usuario preferido.
-      - Con keyword: busca por usuario preferido, luego por keyword, luego por calidad.
+    Flujo sin keyword:
+      1. usuario + tipo + resolución
+      2. usuario + tipo
+      3. usuario sin filtros
+      → si ninguno: pide keyword
+
+    Flujo con keyword:
+      Cascada completa incluyendo keyword, tipo+res y todos.
+
     Responde con HTML parcial para HTMX.
     """
-    from django.conf import settings
-
     video_filename = request.GET.get("video", "").strip()
     keyword = request.GET.get("keyword", "").strip()
 
@@ -69,25 +79,36 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
     sub_status = check_subtitle_status(folder.folder_path, video_filename)
     preferred_user = settings.SUBDIVX_PREFERRED_USER
 
-    # Búsqueda: sin keyword → solo por usuario preferido
     if not keyword:
+        # Búsqueda solo dentro del usuario preferido con cascada tipo+resolución
         all_results = search_subtitles(folder.title)
         if not all_results:
             results, criteria = [], "none"
-        else:
-            by_user = filter_by_user(all_results, preferred_user) if preferred_user else []
-            if by_user:
-                results = _to_subtitle_results(by_user, "user")
-                criteria = "user"
+        elif preferred_user:
+            user_result = search_by_preferred_user(
+                all_results,
+                preferred_user,
+                folder.release_type,
+                folder.resolution,
+            )
+            if user_result:
+                results, criteria = user_result
             else:
-                # Sin resultados del usuario → pedir keyword al usuario
-                results = []
-                criteria = "needs_keyword"
+                # Sin resultados del usuario → pedir keyword
+                results, criteria = [], "needs_keyword"
+        else:
+            # Sin usuario configurado → cascada completa sin keyword
+            results, criteria = search_with_fallback(
+                title=folder.title,
+                release_type=folder.release_type,
+                resolution=folder.resolution,
+            )
     else:
         # Con keyword → cascada completa
         results, criteria = search_with_fallback(
             title=folder.title,
             release_type=folder.release_type,
+            resolution=folder.resolution,
             keyword=keyword,
         )
 
@@ -103,11 +124,13 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
         "criteria": criteria,
         "sub_status": sub_status,
         "criteria_labels": {
-            "user": "usuario preferido",
-            "keyword": "palabra clave",
-            "quality": "tipo de release",
-            "all": "todos los disponibles",
-            "none": "sin resultados",
+            "user+type+res": f"usuario preferido + {folder.release_type} + {folder.resolution}",
+            "user+type":     f"usuario preferido + {folder.release_type}",
+            "user":          "usuario preferido",
+            "keyword":       "palabra clave",
+            "type+res":      f"{folder.release_type} + {folder.resolution}",
+            "all":           "todos los disponibles",
+            "none":          "sin resultados",
             "needs_keyword": "sin resultados del usuario preferido",
         },
     }
