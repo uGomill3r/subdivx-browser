@@ -22,25 +22,7 @@
       <strong style="color:var(--text);">{{ folder.title }}</strong>.
       Ingresá una palabra clave para ampliar la búsqueda.
     </div>
-
-    <form
-      hx-get="{% url 'browser:search_subtitles' folder.folder_name %}"
-      hx-target="#results-area"
-      hx-indicator="#loading-indicator"
-    >
-      <input type="hidden" name="video" value="{{ video_filename }}" />
-      <div class="d-flex gap-2 flex-wrap align-items-center">
-        <input
-          type="text"
-          name="keyword"
-          class="input-dark"
-          placeholder="Ej: latino, castellano, forzado…"
-          style="max-width:280px;"
-          autofocus
-        />
-        <button type="submit" class="btn-accent">Buscar</button>
-      </div>
-    </form>
+    {% include "browser/partials/keyword_form.html" %}
   </div>
 
 {% else %}
@@ -106,5 +88,22 @@
     </div>
   </div>
   {% endfor %}
+
+  <!-- Búsqueda adicional por keyword — siempre disponible -->
+  <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--border);">
+    <button
+      onclick="this.style.display='none'; document.getElementById('keyword-form-extra').style.display='block';"
+      class="btn-outline"
+      style="font-size:0.8rem;"
+    >
+      + Buscar con palabra clave
+    </button>
+    <div id="keyword-form-extra" style="display:none;">
+      <div style="color:var(--text-muted); font-size:0.82rem; margin-bottom:0.75rem;">
+        Ampliá la búsqueda filtrando por una palabra clave en la descripción.
+      </div>
+      {% include "browser/partials/keyword_form.html" %}
+    </div>
+  </div>
 
 {% endif %}

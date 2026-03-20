@@ -1,0 +1,17 @@
+<form
+  hx-get="{% url 'browser:search_subtitles' folder.folder_name %}"
+  hx-target="#results-area"
+  hx-indicator="#loading-indicator"
+>
+  <input type="hidden" name="video" value="{{ video_filename }}" />
+  <div class="d-flex gap-2 flex-wrap align-items-center">
+    <input
+      type="text"
+      name="keyword"
+      class="input-dark"
+      placeholder="Ej: latino, castellano, forzado…"
+      style="max-width:280px;"
+    />
+    <button type="submit" class="btn-accent">Buscar</button>
+  </div>
+</form>
