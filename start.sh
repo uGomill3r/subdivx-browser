@@ -1,6 +1,6 @@
 #!/bin/bash
-# Arranca la app con Gunicorn — 1 worker, worker-class gthread
-# gthread maneja mejor las conexiones persistentes de Safari
+# Arranca la app con Gunicorn en puerto 8001 (interno)
+# El acceso externo se hace via nginx en puerto 8002
 # Ejecutar desde el directorio raíz del proyecto
 
 export DJANGO_SETTINGS_MODULE=config.settings
