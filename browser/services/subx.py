@@ -206,6 +206,13 @@ def search_with_fallback(
     return _to_subtitle_results(all_results, "all"), "all"
 
 
+def get_all_results(title: str) -> list[SubtitleResult]:
+    """Retorna todos los resultados de la API sin ningún filtro aplicado."""
+    raw = search_subtitles(title)
+    logger.info("get_all_results para '%s' — total: %d", title, len(raw))
+    return _to_subtitle_results(raw, "all")
+
+
 def _to_subtitle_results(raw: list[dict], matched_by: str) -> list[SubtitleResult]:
     """Convierte resultados crudos a dataclasses."""
     return [

@@ -95,14 +95,25 @@
 
   <!-- Búsqueda adicional por keyword — siempre disponible -->
   <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--border);">
-    <button
-      onclick="this.style.display='none'; document.getElementById('keyword-form-extra').style.display='block';"
-      class="btn-outline"
-      style="font-size:0.8rem;"
-    >
-      + Buscar con palabra clave
-    </button>
-    <div id="keyword-form-extra" style="display:none;">
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+      <button
+        onclick="this.parentElement.parentElement.querySelector('.keyword-form-extra').style.display='block'; this.parentElement.style.display='none';"
+        class="btn-outline"
+        style="font-size:0.8rem;"
+      >
+        + Buscar con palabra clave
+      </button>
+      <button
+        class="btn-outline"
+        style="font-size:0.8rem;"
+        hx-get="{{ request.path }}?video={{ video_filename|urlencode }}&show_all=1"
+        hx-target="#results-area"
+        hx-indicator="#loading-indicator"
+      >
+        Ver todos
+      </button>
+    </div>
+    <div class="keyword-form-extra" style="display:none; margin-top:0.75rem;">
       <div style="color:var(--text-muted); font-size:0.82rem; margin-bottom:0.75rem;">
         Ampliá la búsqueda filtrando por una palabra clave en la descripción.
       </div>

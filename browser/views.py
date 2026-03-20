@@ -21,6 +21,7 @@ from browser.services.subx import (
     search_by_preferred_user,
     search_with_fallback,
     download_subtitle,
+    get_all_results,
 )
 from browser.services.config import load_config, save_config, get_preferred_user, get_media_root_options
 logger = logging.getLogger(__name__)
@@ -88,6 +89,7 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
 
     video_filename = request.GET.get("video", "").strip()
     keyword = request.GET.get("keyword", "").strip()
+    show_all = request.GET.get("show_all", "").strip() == "1"
 
     folder = get_folder_info(folder_name)
     t1 = time.time()
@@ -104,7 +106,13 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
     sub_status = check_subtitle_status(folder.folder_path, video_filename)
     preferred_user = get_preferred_user()
 
-    if not keyword:
+    if show_all:
+        # Mostrar todos los resultados sin filtros
+        results = get_all_results(folder.title)
+        t2 = time.time()
+        criteria = "all"
+        logger.info("Ver todos — video: '%s' — resultados: %d", video_filename, len(results))
+    elif not keyword:
         # Búsqueda solo dentro del usuario preferido con cascada tipo+resolución
         all_results = search_subtitles(folder.title)
         t2 = time.time()
