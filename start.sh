@@ -11,6 +11,8 @@ gunicorn config.wsgi:application \
   --threads 1 \
   --bind 0.0.0.0:8001 \
   --timeout 60 \
+  --keep-alive 2 \
+  --worker-connections 10 \
   --access-logfile - \
   --error-logfile - \
   --log-level info
