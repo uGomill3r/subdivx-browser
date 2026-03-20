@@ -1,0 +1,17 @@
+<div style="
+  background: var(--surface);
+  border: 1px solid var(--success);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-top: 0.5rem;
+">
+  <div style="color:var(--success); font-family:'Syne',sans-serif; font-weight:700; font-size:1rem; margin-bottom:0.5rem;">
+    ✓ Subtítulo guardado
+  </div>
+  <div style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+    Archivo: <span style="color:var(--text);">{{ saved_filename }}</span>
+  </div>
+  <a href="{% url 'browser:folder_detail' folder_name %}" class="btn-outline" style="font-size:0.8rem;">
+    ← Volver
+  </a>
+</div>

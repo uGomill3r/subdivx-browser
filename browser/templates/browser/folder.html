@@ -1,0 +1,91 @@
+{% extends "browser/base.html" %}
+
+{% block title %}{{ folder.title }} — SubDivX Browser{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<div class="breadcrumb-dark">
+  <a href="{% url 'browser:index' %}">Biblioteca</a>
+  &nbsp;/&nbsp;
+  {{ folder.title }}
+</div>
+
+<!-- Header -->
+<div class="mb-3">
+  <h1 style="font-family:'Syne',sans-serif; font-size:1.35rem; font-weight:800; margin:0;">
+    {{ folder.title }}
+  </h1>
+  <div style="color:var(--text-muted); font-size:0.8rem; margin-top:0.3rem;">
+    {{ folder.year }} &nbsp;·&nbsp; {{ folder.resolution }} &nbsp;·&nbsp;
+    <span style="color:var(--accent);">{{ folder.release_type }}</span>
+  </div>
+</div>
+
+<hr style="border-color:var(--border); margin: 1.25rem 0;" />
+
+<!-- Formulario de búsqueda -->
+<form id="search-form"
+      hx-get="{% url 'browser:search_subtitles' folder.folder_name %}"
+      hx-target="#results-area"
+      hx-indicator="#loading-indicator"
+      hx-trigger="submit">
+
+  {% csrf_token %}
+
+  <!-- Selector de video -->
+  <div class="mb-3">
+    <div class="section-header">Archivo de video</div>
+
+    {% if folder.videos %}
+      {% for video in folder.videos %}
+      <label class="folder-card mb-2" style="cursor:pointer;">
+        <input type="radio" name="video" value="{{ video }}"
+               style="accent-color: var(--accent);"
+               {% if folder.videos|length == 1 %}checked{% endif %} />
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            {{ video }}
+          </div>
+          {% if folder.has_subtitle %}
+            <div style="font-size:0.75rem; color:var(--success); margin-top:0.2rem;">✓ ya tiene subtítulo</div>
+          {% endif %}
+        </div>
+      </label>
+      {% endfor %}
+    {% else %}
+      <p style="color:var(--text-muted);">No se encontraron archivos .mp4 en esta carpeta.</p>
+    {% endif %}
+  </div>
+
+  <!-- Keyword opcional -->
+  <div class="mb-3">
+    <div class="section-header">Palabra clave (opcional)</div>
+    <input
+      type="text"
+      name="keyword"
+      class="input-dark"
+      placeholder="Ej: 'forzado', 'SDH', nombre de quien lo subió…"
+      style="max-width:400px;"
+    />
+    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.4rem;">
+      Se usa como filtro de descripción si no hay resultados del usuario preferido.
+    </div>
+  </div>
+
+  <!-- Botón buscar -->
+  <button type="submit" class="btn-accent" {% if not folder.videos %}disabled{% endif %}>
+    Buscar subtítulos
+  </button>
+
+</form>
+
+<!-- Indicador de carga -->
+<div id="loading-indicator" class="htmx-indicator mt-3">
+  <span>⟳ Buscando en SubDivX…</span>
+</div>
+
+<!-- Área de resultados (HTMX la reemplaza) -->
+<div id="results-area" class="mt-4"></div>
+
+{% endblock %}

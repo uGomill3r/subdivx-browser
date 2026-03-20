@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}SubDivX Browser{% endblock %}</title>
+
+  <!-- Google Fonts: Syne (display) + DM Mono (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" />
+
+  <!-- HTMX -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.2/htmx.min.js" defer></script>
+
+  <style>
+    :root {
+      --bg: #0d0f14;
+      --surface: #151820;
+      --surface-2: #1c2030;
+      --border: #252a3a;
+      --accent: #e8c840;
+      --accent-dim: #b89e28;
+      --text: #d4d8e8;
+      --text-muted: #6b7294;
+      --success: #3dd68c;
+      --danger: #f05252;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.9rem;
+      min-height: 100vh;
+    }
+
+    /* Barra superior */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .topbar-brand {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.15rem;
+      color: var(--accent);
+      text-decoration: none;
+      letter-spacing: 0.05em;
+    }
+    .topbar-brand span { color: var(--text-muted); font-weight: 400; }
+
+    /* Contenido */
+    .main-content {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+
+    /* Cards de carpeta */
+    .folder-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: border-color 0.15s, background 0.15s;
+      text-decoration: none;
+      color: var(--text);
+    }
+    .folder-card:hover {
+      border-color: var(--accent);
+      background: var(--surface-2);
+      color: var(--text);
+    }
+    .folder-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .folder-meta {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+    }
+    .badge-year {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      font-size: 0.75rem;
+    }
+    .badge-type {
+      background: transparent;
+      border: 1px solid var(--accent-dim);
+      color: var(--accent);
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      font-size: 0.75rem;
+    }
+    .badge-sub-ok {
+      background: transparent;
+      border: 1px solid var(--success);
+      color: var(--success);
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      font-size: 0.72rem;
+    }
+
+    /* Botones */
+    .btn-accent {
+      background: var(--accent);
+      color: #0d0f14;
+      border: none;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 0.5rem 1.25rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-accent:hover { background: var(--accent-dim); }
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      padding: 0.45rem 1rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Input */
+    .input-dark {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 0.45rem 0.85rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      width: 100%;
+    }
+    .input-dark:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: var(--surface);
+    }
+
+    /* Resultados de subtítulos */
+    .subtitle-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.6rem;
+    }
+    .subtitle-card:hover { border-color: var(--border); }
+    .subtitle-uploader { color: var(--accent); font-size: 0.8rem; }
+    .subtitle-desc {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      margin-top: 0.3rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .subtitle-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; }
+
+    /* Criterio badge */
+    .criteria-badge {
+      display: inline-block;
+      border: 1px solid var(--accent-dim);
+      color: var(--accent);
+      padding: 0.2rem 0.7rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Sección de video seleccionado */
+    .selected-video {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.6rem 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.85rem;
+    }
+    .selected-video span { color: var(--accent); }
+
+    /* Loading */
+    .htmx-indicator {
+      display: none;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      padding: 0.5rem 0;
+    }
+    .htmx-request .htmx-indicator { display: block; }
+    .htmx-request.htmx-indicator { display: block; }
+
+    /* Section header */
+    .section-header {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Breadcrumb */
+    .breadcrumb-dark {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+    .breadcrumb-dark a { color: var(--accent); text-decoration: none; }
+    .breadcrumb-dark a:hover { text-decoration: underline; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <nav class="topbar">
+    <a href="{% url 'browser:index' %}" class="topbar-brand">
+      SUBDIVX <span>/ browser</span>
+    </a>
+  </nav>
+
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+</body>
+</html>
