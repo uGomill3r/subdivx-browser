@@ -6,9 +6,9 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# Formato esperado: Título (año) [resolución] [tipo] ...
+# Formato esperado: Título (año) [resolución] [tipo opcional] ...
 FOLDER_PATTERN = re.compile(
-    r'^(?P<title>.+?)\s\((?P<year>\d{4})\)\s\[(?P<resolution>720p|1080p|2160p)\]\s\[(?P<type>BluRay|WEBRip|WEB-DL)\]',
+    r'^(?P<title>.+?)\s\((?P<year>\d{4})\)\s\[(?P<resolution>720p|1080p|2160p)\](?:\s\[(?P<type>BluRay|WEBRip|WEB-DL)\])?',
     re.IGNORECASE,
 )
 
@@ -31,13 +31,17 @@ class FolderInfo:
 def parse_folder_name(folder_name: str) -> dict | None:
     """
     Parsea el nombre de carpeta y retorna los campos extraídos.
+    El campo [tipo] es opcional — se usa empty string si no está presente.
     Retorna None si el formato no coincide.
     """
     match = FOLDER_PATTERN.match(folder_name)
     if not match:
         logger.debug("Carpeta sin formato reconocido: '%s'", folder_name)
         return None
-    return match.groupdict()
+    data = match.groupdict()
+    # [tipo] es opcional, usar BluRay como valor por defecto
+    data["type"] = data.get("type") or "BluRay"
+    return data
 
 
 def get_videos_in_folder(folder_path: str) -> list[str]:
