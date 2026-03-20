@@ -8,45 +8,17 @@
   <h1 style="font-family:'Syne',sans-serif; font-size:1.4rem; font-weight:800; margin:0;">
     Biblioteca
   </h1>
-  <span style="color:var(--text-muted); font-size:0.8rem;">
-    {{ folders|length }} título{{ folders|length|pluralize:"s" }}
-  </span>
 </div>
 
-{% if not folders %}
-  <div style="color:var(--text-muted); text-align:center; padding:3rem 0;">
-    <p>No se encontraron carpetas con el formato esperado.</p>
-    <p style="font-size:0.8rem;">Formato: <code>Título (año) [resolución] [tipo]</code></p>
+<!-- Carga la lista via HTMX al renderizar la página -->
+<div
+  hx-get="{% url 'browser:folder_list' %}"
+  hx-trigger="load"
+  hx-indicator="#loading-folders"
+>
+  <div id="loading-folders" class="htmx-indicator" style="color:var(--text-muted); padding:1rem 0;">
+    ⟳ Cargando biblioteca…
   </div>
-{% else %}
-
-  {% for folder in folders %}
-  <a href="{% url 'browser:folder_detail' folder.folder_name %}" class="folder-card">
-
-    <!-- Ícono -->
-    <div style="color:var(--accent); font-size:1.4rem; flex-shrink:0;">🎬</div>
-
-    <!-- Info principal -->
-    <div style="flex:1; min-width:0;">
-      <div class="folder-title">{{ folder.title }}</div>
-      <div class="folder-meta mt-1">
-        {{ folder.videos|length }} archivo{{ folder.videos|length|pluralize:"s" }} de video
-      </div>
-    </div>
-
-    <!-- Badges -->
-    <div class="d-flex gap-2 flex-wrap justify-content-end" style="flex-shrink:0;">
-      <span class="badge-year">{{ folder.year }}</span>
-      <span class="badge-year">{{ folder.resolution }}</span>
-      <span class="badge-type">{{ folder.release_type }}</span>
-      {% if folder.has_subtitle %}
-        <span class="badge-sub-ok">✓ sub</span>
-      {% endif %}
-    </div>
-
-  </a>
-  {% endfor %}
-
-{% endif %}
+</div>
 
 {% endblock %}

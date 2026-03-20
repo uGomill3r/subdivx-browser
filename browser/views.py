@@ -25,10 +25,22 @@ logger = logging.getLogger(__name__)
 
 
 def index(request: HttpRequest) -> HttpResponse:
-    """Vista principal: lista de carpetas de media."""
+    """
+    Vista principal: renderiza la página vacía de inmediato.
+    La lista de carpetas se carga via HTMX en un request separado.
+    """
+    logger.info("Index cargado")
+    return render(request, "browser/index.html")
+
+
+def folder_list(request: HttpRequest) -> HttpResponse:
+    """
+    Retorna la lista de carpetas como HTML parcial para HTMX.
+    Es el único punto donde se lee el disco para el índice.
+    """
     folders = list_media_folders()
-    logger.info("Index cargado — carpetas: %d", len(folders))
-    return render(request, "browser/index.html", {"folders": folders})
+    logger.info("Lista de carpetas cargada — total: %d", len(folders))
+    return render(request, "browser/partials/folder_list.html", {"folders": folders})
 
 
 def folder_detail(request: HttpRequest, folder_name: str) -> HttpResponse:
