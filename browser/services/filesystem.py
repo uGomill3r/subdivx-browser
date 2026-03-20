@@ -1,9 +1,18 @@
 import os
 import re
+import zipfile
 import logging
 from dataclasses import dataclass, field
 from django.conf import settings
 from browser.services.config import get_media_root
+
+try:
+    import rarfile
+    _RARFILE_AVAILABLE = True
+except ImportError:
+    _RARFILE_AVAILABLE = False
+    logger_tmp = logging.getLogger(__name__)
+    logger_tmp.warning("rarfile no disponible — soporte RAR deshabilitado")
 
 logger = logging.getLogger(__name__)
 
@@ -309,3 +318,81 @@ def save_subtitle(folder_path: str, video_filename: str, content: bytes) -> str:
         raise
 
     return subtitle_path
+
+
+def list_srts_in_archive(content: bytes) -> list[str]:
+    """
+    Retorna los nombres de archivos .srt dentro de un ZIP o RAR.
+    Detecta el formato por los magic bytes del contenido.
+    """
+    # ZIP: magic bytes PK (0x50 0x4B)
+    if content[:2] == b'PK':
+        try:
+            import io
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                srts = [n for n in zf.namelist() if n.lower().endswith('.srt')]
+                logger.info("ZIP — archivos .srt encontrados: %s", srts)
+                return srts
+        except zipfile.BadZipFile as e:
+            logger.error("Error al leer ZIP: %s", e)
+            return []
+
+    # RAR: magic bytes Rar! (0x52 0x61 0x72 0x21)
+    if content[:4] == b'Rar!' and _RARFILE_AVAILABLE:
+        try:
+            import io
+            import tempfile
+            # rarfile requiere un archivo en disco, no soporta BytesIO
+            with tempfile.NamedTemporaryFile(suffix='.rar', delete=False) as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+            try:
+                with rarfile.RarFile(tmp_path) as rf:
+                    srts = [n for n in rf.namelist() if n.lower().endswith('.srt')]
+                    logger.info("RAR — archivos .srt encontrados: %s", srts)
+                    return srts
+            finally:
+                os.unlink(tmp_path)
+        except Exception as e:
+            logger.error("Error al leer RAR: %s", e)
+            return []
+
+    logger.warning("Formato de archivo no reconocido o rarfile no disponible")
+    return []
+
+
+def extract_srt_from_archive(content: bytes, srt_name: str) -> bytes | None:
+    """
+    Extrae el contenido de un .srt específico de un ZIP o RAR.
+    Retorna los bytes del .srt o None si falla.
+    """
+    if content[:2] == b'PK':
+        try:
+            import io
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                data = zf.read(srt_name)
+                logger.info("Extraído '%s' del ZIP — %d bytes", srt_name, len(data))
+                return data
+        except (zipfile.BadZipFile, KeyError) as e:
+            logger.error("Error al extraer '%s' del ZIP: %s", srt_name, e)
+            return None
+
+    if content[:4] == b'Rar!' and _RARFILE_AVAILABLE:
+        try:
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix='.rar', delete=False) as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+            try:
+                with rarfile.RarFile(tmp_path) as rf:
+                    data = rf.read(srt_name)
+                    logger.info("Extraído '%s' del RAR — %d bytes", srt_name, len(data))
+                    return data
+            finally:
+                os.unlink(tmp_path)
+        except Exception as e:
+            logger.error("Error al extraer '%s' del RAR: %s", srt_name, e)
+            return None
+
+    logger.error("No se pudo extraer '%s' — formato no soportado", srt_name)
+    return None

@@ -9,5 +9,6 @@ urlpatterns = [
     path("folder/<str:folder_name>/", views.folder_detail, name="folder_detail"),
     path("folder/<str:folder_name>/search/", views.search_subtitles_view, name="search_subtitles"),
     path("folder/<str:folder_name>/download/", views.download_and_save, name="download_and_save"),
+    path("folder/<str:folder_name>/select/", views.select_and_save, name="select_and_save"),
     path("settings/", views.settings_view, name="settings"),
 ]

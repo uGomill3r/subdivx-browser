@@ -13,6 +13,8 @@ from browser.services.filesystem import (
     check_subtitle_status,
     rename_plain_srt_to_english,
     clean_folder,
+    list_srts_in_archive,
+    extract_srt_from_archive,
 )
 from browser.services.subx import (
     search_subtitles,
@@ -187,19 +189,60 @@ def download_and_save(request: HttpRequest, folder_name: str) -> HttpResponse:
         logger.warning("Video '%s' inválido para carpeta '%s'", video_filename, folder_name)
         return HttpResponse("<p class='text-danger'>Video inválido.</p>", status=400)
 
-    # Renombrar .srt sin .es a .en.srt si existe
-    renamed_to_english = rename_plain_srt_to_english(folder.folder_path, video_filename)
-
-    # Limpiar carpeta antes de guardar
-    deleted_files = clean_folder(folder.folder_path, video_filename)
-
-    # Descargar subtítulo
+    # Descargar archivo (puede ser .srt directo, ZIP o RAR)
     content = download_subtitle(subtitle_id)
     if not content:
         return HttpResponse(
             "<p class='text-danger'>Error al descargar el subtítulo. Intentá con otro.</p>",
             status=502
         )
+
+    # Detectar si es archivo comprimido
+    is_zip = content[:2] == b'PK'
+    is_rar = content[:4] == b'Rar!'
+
+    if is_zip or is_rar:
+        srts = list_srts_in_archive(content)
+        if not srts:
+            return HttpResponse(
+                "<p class='text-danger'>El archivo comprimido no contiene subtítulos .srt.</p>",
+                status=422
+            )
+        if len(srts) == 1:
+            # Un solo .srt — extraer y procesar directo
+            srt_content = extract_srt_from_archive(content, srts[0])
+            if not srt_content:
+                return HttpResponse(
+                    "<p class='text-danger'>Error al extraer el subtítulo del archivo.</p>",
+                    status=500
+                )
+            content = srt_content
+        else:
+            # Múltiples .srt — mostrar modal de selección sin tocar el disco todavía
+            import base64
+            archive_b64 = base64.b64encode(content).decode()
+            logger.info("Múltiples .srt en archivo — mostrando selector: %s", srts)
+            return render(request, "browser/partials/select_srt.html", {
+                "srts": srts,
+                "archive_b64": archive_b64,
+                "folder_name": folder_name,
+                "video_filename": video_filename,
+            })
+    else:
+        # Contenido directo (ya es .srt)
+        logger.info("Archivo descargado directo como .srt — ID: %s", subtitle_id)
+
+    # Renombrar .srt sin .es a .en.srt si existe (solo si vamos a guardar)
+    renamed_to_english = rename_plain_srt_to_english(folder.folder_path, video_filename)
+
+    # Limpiar carpeta antes de guardar
+    deleted_files = clean_folder(folder.folder_path, video_filename)
+
+    # Renombrar .srt sin .es a .en.srt si existe
+    renamed_to_english = rename_plain_srt_to_english(folder.folder_path, video_filename)
+
+    # Limpiar carpeta antes de guardar
+    deleted_files = clean_folder(folder.folder_path, video_filename)
 
     # Guardar .es.srt
     try:
@@ -212,6 +255,66 @@ def download_and_save(request: HttpRequest, folder_name: str) -> HttpResponse:
 
     saved_filename = os.path.basename(saved_path)
     logger.info("Proceso completo para '%s' — guardado: '%s'", video_filename, saved_filename)
+
+    return render(request, "browser/partials/success.html", {
+        "saved_filename": saved_filename,
+        "folder_name": folder_name,
+        "renamed_to_english": renamed_to_english,
+        "deleted_files": deleted_files,
+    })
+
+
+@require_http_methods(["POST"])
+def select_and_save(request: HttpRequest, folder_name: str) -> HttpResponse:
+    """
+    Recibe la selección del usuario de un .srt dentro de un archivo comprimido,
+    extrae el archivo elegido y lo guarda como .es.srt.
+    Parámetros POST: srt_name, video_filename, archive_b64.
+    """
+    import base64
+
+    srt_name = request.POST.get("srt_name", "").strip()
+    video_filename = request.POST.get("video_filename", "").strip()
+    archive_b64 = request.POST.get("archive_b64", "").strip()
+
+    folder = get_folder_info(folder_name)
+    if not folder:
+        return HttpResponse("<p class='text-danger'>Carpeta no encontrada.</p>", status=404)
+
+    if not srt_name or not video_filename or not archive_b64:
+        return HttpResponse("<p class='text-warning'>Parámetros incompletos.</p>", status=400)
+
+    if video_filename not in folder.videos:
+        logger.warning("Video '%s' inválido para carpeta '%s'", video_filename, folder_name)
+        return HttpResponse("<p class='text-danger'>Video inválido.</p>", status=400)
+
+    try:
+        content = base64.b64decode(archive_b64)
+    except Exception as e:
+        logger.error("Error al decodificar archivo comprimido: %s", e)
+        return HttpResponse("<p class='text-danger'>Error al procesar el archivo.</p>", status=500)
+
+    srt_content = extract_srt_from_archive(content, srt_name)
+    if not srt_content:
+        return HttpResponse(
+            "<p class='text-danger'>Error al extraer el subtítulo seleccionado.</p>",
+            status=500
+        )
+
+    renamed_to_english = rename_plain_srt_to_english(folder.folder_path, video_filename)
+    deleted_files = clean_folder(folder.folder_path, video_filename)
+
+    try:
+        saved_path = save_subtitle(folder.folder_path, video_filename, srt_content)
+    except OSError:
+        return HttpResponse(
+            "<p class='text-danger'>Error al guardar el subtítulo en disco.</p>",
+            status=500
+        )
+
+    saved_filename = os.path.basename(saved_path)
+    logger.info("Selección procesada para '%s' — srt: '%s' — guardado: '%s'",
+                video_filename, srt_name, saved_filename)
 
     return render(request, "browser/partials/success.html", {
         "saved_filename": saved_filename,

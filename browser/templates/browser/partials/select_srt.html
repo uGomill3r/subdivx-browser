@@ -1,0 +1,76 @@
+<!-- Modal de selección de .srt dentro de archivo comprimido -->
+<div style="
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+" id="srt-modal">
+
+  <div style="
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    max-width: 520px;
+    width: 100%;
+  ">
+    <div style="font-family:'Inter',sans-serif; font-weight:700; font-size:1rem; margin-bottom:0.4rem;">
+      Elegí el subtítulo
+    </div>
+    <div style="color:var(--text-muted); font-size:0.82rem; margin-bottom:1.25rem;">
+      El archivo contiene {{ srts|length }} subtítulos. Seleccioná cuál descargar.
+    </div>
+
+    {% for srt in srts %}
+    <form
+      hx-post="{% url 'browser:select_and_save' folder_name %}"
+      hx-target="#results-area"
+      hx-indicator="#loading-indicator"
+      style="margin-bottom: 0.5rem;"
+    >
+      {% csrf_token %}
+      <input type="hidden" name="srt_name" value="{{ srt }}" />
+      <input type="hidden" name="video_filename" value="{{ video_filename }}" />
+      <input type="hidden" name="archive_b64" value="{{ archive_b64 }}" />
+      <button type="submit" style="
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        width: 100%;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 0.65rem 1rem;
+        color: var(--text);
+        font-family: 'DM Mono', monospace;
+        font-size: 0.82rem;
+        cursor: pointer;
+        text-align: left;
+        transition: border-color 0.15s;
+      "
+      onmouseover="this.style.borderColor='var(--accent)'"
+      onmouseout="this.style.borderColor='var(--border)'"
+      >
+        <span style="color:var(--accent); font-size:0.9rem;">▸</span>
+        {{ srt }}
+      </button>
+    </form>
+    {% endfor %}
+
+    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+      <button
+        type="button"
+        class="btn-outline"
+        style="font-size:0.82rem;"
+        onclick="document.getElementById('srt-modal').remove()"
+      >
+        Cancelar
+      </button>
+    </div>
+  </div>
+
+</div>
