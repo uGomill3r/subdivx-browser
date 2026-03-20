@@ -51,7 +51,7 @@
   </div>
 {% endif %}
 
-<form method="post" style="max-width: 600px;">
+<form method="post" style="max-width: 600px;" id="settings-form">
   {% csrf_token %}
 
   <!-- Ruta de la biblioteca -->
@@ -92,20 +92,116 @@
   <div style="margin-bottom: 1.75rem;">
     <div class="section-header">Palabras del filtro inicial</div>
     <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem;">
-      Una por línea. Se usan como términos adicionales en la búsqueda inicial
-      (antes de pedir keyword manual).
+      Se usan como términos adicionales en la búsqueda inicial (antes de pedir keyword manual).
     </label>
-    <textarea
-      name="preferred_words"
-      class="input-dark"
-      rows="5"
-      placeholder="BluRay&#10;1080p&#10;WEBRip"
-      spellcheck="false"
-    >{{ config.preferred_words_text }}</textarea>
+
+    <!-- Chips de palabras actuales -->
+    <div id="words-list" style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.6rem; min-height:1.5rem;"></div>
+
+    <!-- Input para agregar -->
+    <div style="display:flex; gap:0.5rem;">
+      <input
+        type="text"
+        id="word-input"
+        class="input-dark"
+        placeholder="Ej: BluRay"
+        spellcheck="false"
+        autocomplete="off"
+        style="flex:1;"
+      />
+      <button type="button" class="btn-outline" onclick="addWord()">+ Agregar</button>
+    </div>
+
+    <!-- Campo oculto que acumula las palabras separadas por \n para el POST -->
+    <input type="hidden" name="preferred_words" id="words-hidden" value="{{ config.preferred_words_text }}" />
   </div>
 
   <button type="submit" class="btn-accent">Guardar configuración</button>
 
 </form>
+
+<style>
+  .word-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 3px;
+    padding: 0.2rem 0.6rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+  }
+  .word-chip button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1;
+    transition: color 0.15s;
+  }
+  .word-chip button:hover { color: var(--danger); }
+</style>
+
+<script>
+  const hiddenInput = document.getElementById("words-hidden");
+  const wordsList   = document.getElementById("words-list");
+  const wordInput   = document.getElementById("word-input");
+
+  function getWords() {
+    return hiddenInput.value.split("\n").map(w => w.trim()).filter(w => w.length > 0);
+  }
+
+  function setWords(words) {
+    hiddenInput.value = words.join("\n");
+  }
+
+  function renderChips() {
+    const words = getWords();
+    wordsList.innerHTML = "";
+    if (words.length === 0) {
+      wordsList.innerHTML = "<span style='color:var(--text-muted); font-size:0.8rem;'>Sin palabras definidas</span>";
+      return;
+    }
+    words.forEach((word, i) => {
+      const chip = document.createElement("span");
+      chip.className = "word-chip";
+      chip.innerHTML = word + ' <button type="button" onclick="removeWord(' + i + ')" title="Eliminar">✕</button>';
+      wordsList.appendChild(chip);
+    });
+  }
+
+  function addWord() {
+    const val = wordInput.value.trim();
+    if (!val) return;
+    const words = getWords();
+    if (!words.includes(val)) {
+      words.push(val);
+      setWords(words);
+      renderChips();
+    }
+    wordInput.value = "";
+    wordInput.focus();
+  }
+
+  function removeWord(index) {
+    const words = getWords();
+    words.splice(index, 1);
+    setWords(words);
+    renderChips();
+  }
+
+  wordInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addWord();
+    }
+  });
+
+  renderChips();
+</script>
 
 {% endblock %}
