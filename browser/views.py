@@ -255,11 +255,15 @@ def settings_view(request: HttpRequest) -> HttpResponse:
         config = {
             "media_root": media_root,
             "preferred_user": preferred_user,
-            "preferred_words": preferred_words,
+            "preferred_words_text": "\n".join(preferred_words),
         }
     else:
-        config = load_config()
-        # preferred_words es lista, la mostramos como texto línea por línea en el textarea
+        raw = load_config()
+        config = {
+            "media_root": raw["media_root"],
+            "preferred_user": raw["preferred_user"],
+            "preferred_words_text": "\n".join(raw.get("preferred_words", [])),
+        }
         logger.info("Vista de configuración cargada")
 
     return render(request, "browser/settings.html", {
