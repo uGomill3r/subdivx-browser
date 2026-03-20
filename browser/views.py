@@ -151,6 +151,7 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
         "criteria": criteria,
         "sub_status": sub_status,
         "criteria_labels": {
+            "user+type+res+words": f"usuario preferido + {folder.release_type} + {folder.resolution} + palabras preferidas",
             "user+type+res": f"usuario preferido + {folder.release_type} + {folder.resolution}",
             "user+type":     f"usuario preferido + {folder.release_type}",
             "user+words":    "usuario preferido + palabras preferidas",

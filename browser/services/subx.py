@@ -120,9 +120,9 @@ def search_by_preferred_user(
 ) -> tuple[list[SubtitleResult], str] | None:
     """
     Búsqueda en cascada dentro del usuario preferido:
-      1. usuario + tipo + resolución
-      2. usuario + tipo
-      3. usuario + preferred_words (si están configuradas)
+      1. usuario + tipo + resolución + palabras preferidas (si están configuradas)
+      2. usuario + tipo + resolución
+      3. usuario + tipo
       4. usuario (sin filtros adicionales)
 
     Retorna (resultados, criterio) o None si no hay resultados del usuario.
@@ -132,26 +132,27 @@ def search_by_preferred_user(
         logger.info("Sin resultados del usuario preferido '%s'", preferred_user)
         return None
 
-    # 1. usuario + tipo + resolución
     by_type_res = filter_by_resolution(filter_by_quality(by_user, release_type), resolution)
+
+    # 1. usuario + tipo + resolución + palabras preferidas
+    if preferred_words and by_type_res:
+        filtered = by_type_res
+        for word in preferred_words:
+            filtered = filter_by_keyword(filtered, word)
+        if filtered:
+            logger.info("Criterio: usuario + tipo + resolución + palabras %s — resultados: %d", preferred_words, len(filtered))
+            return _to_subtitle_results(filtered, "user+type+res+words"), "user+type+res+words"
+
+    # 2. usuario + tipo + resolución
     if by_type_res:
         logger.info("Criterio: usuario + tipo + resolución — resultados: %d", len(by_type_res))
         return _to_subtitle_results(by_type_res, "user+type+res"), "user+type+res"
 
-    # 2. usuario + tipo
+    # 3. usuario + tipo
     by_type = filter_by_quality(by_user, release_type)
     if by_type:
         logger.info("Criterio: usuario + tipo — resultados: %d", len(by_type))
         return _to_subtitle_results(by_type, "user+type"), "user+type"
-
-    # 3. usuario + preferred_words (cada palabra como filtro AND acumulativo)
-    if preferred_words:
-        filtered = by_user
-        for word in preferred_words:
-            filtered = filter_by_keyword(filtered, word)
-        if filtered:
-            logger.info("Criterio: usuario + palabras preferidas %s — resultados: %d", preferred_words, len(filtered))
-            return _to_subtitle_results(filtered, "user+words"), "user+words"
 
     # 4. usuario sin filtros adicionales
     logger.info("Criterio: usuario preferido (sin filtros) — resultados: %d", len(by_user))
