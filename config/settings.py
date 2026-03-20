@@ -56,6 +56,10 @@ MEDIA_ROOT_PATH = os.getenv("MEDIA_ROOT", "/media/videos")
 
 VIDEO_EXTENSIONS = [".mp4"]
 
+# Carpetas a excluir del escaneo (separadas por coma en .env)
+_excluded = os.getenv("MEDIA_EXCLUDED_FOLDERS", "")
+MEDIA_EXCLUDED_FOLDERS = {f.strip() for f in _excluded.split(",") if f.strip()}
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

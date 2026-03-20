@@ -178,8 +178,14 @@ def list_media_folders() -> list[FolderInfo]:
         logger.error("Error al leer MEDIA_ROOT '%s': %s", media_root, e)
         return []
 
+    excluded = settings.MEDIA_EXCLUDED_FOLDERS
     folders = []
     for entry in sorted(entries):
+        # Saltar carpetas excluidas antes de cualquier acceso al disco
+        if entry in excluded:
+            logger.debug("Carpeta excluida del escaneo: '%s'", entry)
+            continue
+
         full_path = os.path.join(media_root, entry)
         if not os.path.isdir(full_path):
             continue
