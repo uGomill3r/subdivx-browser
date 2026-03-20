@@ -110,11 +110,13 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
         if not all_results:
             results, criteria = [], "none"
         elif preferred_user:
+            from browser.services.config import get_preferred_words
             user_result = search_by_preferred_user(
                 all_results,
                 preferred_user,
                 folder.release_type,
                 folder.resolution,
+                get_preferred_words(),
             )
             if user_result:
                 results, criteria = user_result
@@ -151,6 +153,7 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
         "criteria_labels": {
             "user+type+res": f"usuario preferido + {folder.release_type} + {folder.resolution}",
             "user+type":     f"usuario preferido + {folder.release_type}",
+            "user+words":    "usuario preferido + palabras preferidas",
             "user":          "usuario preferido",
             "keyword":       "palabra clave",
             "type+res":      f"{folder.release_type} + {folder.resolution}",

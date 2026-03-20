@@ -2,7 +2,7 @@ import logging
 import requests
 from dataclasses import dataclass
 from django.conf import settings
-from browser.services.config import get_preferred_user
+from browser.services.config import get_preferred_user, get_preferred_words
 
 logger = logging.getLogger(__name__)
 
@@ -116,12 +116,14 @@ def search_by_preferred_user(
     preferred_user: str,
     release_type: str,
     resolution: str,
+    preferred_words: list[str] | None = None,
 ) -> tuple[list[SubtitleResult], str] | None:
     """
     Búsqueda en cascada dentro del usuario preferido:
       1. usuario + tipo + resolución
       2. usuario + tipo
-      3. usuario (sin filtros adicionales)
+      3. usuario + preferred_words (si están configuradas)
+      4. usuario (sin filtros adicionales)
 
     Retorna (resultados, criterio) o None si no hay resultados del usuario.
     """
@@ -142,7 +144,16 @@ def search_by_preferred_user(
         logger.info("Criterio: usuario + tipo — resultados: %d", len(by_type))
         return _to_subtitle_results(by_type, "user+type"), "user+type"
 
-    # 3. usuario sin filtros adicionales
+    # 3. usuario + preferred_words (cada palabra como filtro AND acumulativo)
+    if preferred_words:
+        filtered = by_user
+        for word in preferred_words:
+            filtered = filter_by_keyword(filtered, word)
+        if filtered:
+            logger.info("Criterio: usuario + palabras preferidas %s — resultados: %d", preferred_words, len(filtered))
+            return _to_subtitle_results(filtered, "user+words"), "user+words"
+
+    # 4. usuario sin filtros adicionales
     logger.info("Criterio: usuario preferido (sin filtros) — resultados: %d", len(by_user))
     return _to_subtitle_results(by_user, "user"), "user"
 
@@ -165,15 +176,16 @@ def search_with_fallback(
     Retorna (lista_de_resultados, criterio_usado).
     """
     preferred_user = get_preferred_user()
+    preferred_words = get_preferred_words()
     all_results = search_subtitles(title)
 
     if not all_results:
         logger.warning("Sin resultados en SubX para: '%s'", title)
         return [], "none"
 
-    # Pasos 1-3: cascada dentro del usuario preferido
+    # Pasos 1-4: cascada dentro del usuario preferido
     if preferred_user:
-        user_result = search_by_preferred_user(all_results, preferred_user, release_type, resolution)
+        user_result = search_by_preferred_user(all_results, preferred_user, release_type, resolution, preferred_words)
         if user_result:
             return user_result
 
