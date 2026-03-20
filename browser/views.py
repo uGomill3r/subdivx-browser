@@ -48,13 +48,20 @@ def folder_detail(request: HttpRequest, folder_name: str) -> HttpResponse:
     Detalle de una carpeta: muestra los archivos de video y permite
     seleccionar uno para buscar subtítulos.
     """
+    import time
+    t0 = time.time()
     folder = get_folder_info(folder_name)
+    t1 = time.time()
     if not folder:
         return render(request, "browser/error.html", {
             "message": f"Carpeta no encontrada o formato inválido: {folder_name}"
         }, status=404)
 
-    logger.info("Detalle de carpeta: '%s' — videos: %d", folder_name, len(folder.videos))
+    t2 = time.time()
+    logger.info(
+        "Detalle de carpeta: '%s' — get_folder_info: %.3fs — render: %.3fs — total: %.3fs",
+        folder_name, t1 - t0, t2 - t1, t2 - t0
+    )
     return render(request, "browser/folder.html", {"folder": folder})
 
 
@@ -74,10 +81,14 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
 
     Responde con HTML parcial para HTMX.
     """
+    import time
+    t0 = time.time()
+
     video_filename = request.GET.get("video", "").strip()
     keyword = request.GET.get("keyword", "").strip()
 
     folder = get_folder_info(folder_name)
+    t1 = time.time()
     if not folder:
         return HttpResponse("<p class='text-danger'>Carpeta no encontrada.</p>", status=404)
 
@@ -94,6 +105,8 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
     if not keyword:
         # Búsqueda solo dentro del usuario preferido con cascada tipo+resolución
         all_results = search_subtitles(folder.title)
+        t2 = time.time()
+        logger.info("TIMING search — get_folder_info: %.3fs — API call: %.3fs", t1 - t0, t2 - t1)
         if not all_results:
             results, criteria = [], "none"
         elif preferred_user:
