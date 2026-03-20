@@ -132,13 +132,6 @@ sudo journalctl -u nginx -f
 Título (año) [resolución] [tipo opcional] ...
 ```
 
-Ejemplos:
-```
-Cruella (2021) [1080p] [BluRay] [YTS.MX]
-Gangster Squad (2013) [1080p]
-The Favourite (2018) [BluRay] [1080p]
-```
-
 - La resolución y el tipo se leen del nombre del archivo de video si no están en la carpeta
 - Si no hay tipo, se asume BluRay por defecto
 
