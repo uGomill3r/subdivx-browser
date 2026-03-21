@@ -30,6 +30,7 @@
         hx-get="{{ request.path }}?video={{ video_filename|urlencode }}&show_all=1"
         hx-target="#results-area"
         hx-indicator="#loading-indicator"
+        hx-on:htmx:before-request="setLoadingMsg('Buscando todos los resultados…')"
       >
         Ver todos
       </button>
@@ -90,6 +91,7 @@
         hx-post="{% url 'browser:download_and_save' folder.folder_name %}"
         hx-target="#results-area"
         hx-indicator="#loading-indicator"
+        hx-on:htmx:before-request="setLoadingMsg('Descargando subtítulo…')"
         style="flex-shrink:0;"
       >
         {% csrf_token %}
@@ -120,6 +122,7 @@
         hx-get="{{ request.path }}?video={{ video_filename|urlencode }}&show_all=1"
         hx-target="#results-area"
         hx-indicator="#loading-indicator"
+        hx-on:htmx:before-request="setLoadingMsg('Buscando todos los resultados…')"
       >
         Ver todos
       </button>

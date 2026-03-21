@@ -228,10 +228,25 @@
       display: none;
       color: var(--text-muted);
       font-size: 0.85rem;
-      padding: 0.5rem 0;
+      padding: 0.6rem 0;
+      align-items: center;
+      gap: 0.6rem;
     }
-    .htmx-request .htmx-indicator { display: block; }
-    .htmx-request.htmx-indicator { display: block; }
+    .htmx-request .htmx-indicator { display: flex; }
+    .htmx-request.htmx-indicator { display: flex; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
 
     /* Section header */
     .section-header {

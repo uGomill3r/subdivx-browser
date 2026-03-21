@@ -75,7 +75,8 @@
 
   <!-- Indicador de carga -->
   <div id="loading-indicator" class="htmx-indicator mb-2">
-    <span>⟳ Buscando en SubDivX…</span>
+    <div class="spinner"></div>
+    <span id="loading-msg">Buscando en SubDivX…</span>
   </div>
 
   <!-- Área de resultados -->
@@ -112,7 +113,13 @@
 <script>
   const searchUrl = "{% url 'browser:search_subtitles' folder.folder_name %}";
 
+  function setLoadingMsg(msg) {
+    const el = document.getElementById("loading-msg");
+    if (el) el.textContent = msg;
+  }
+
   function triggerSearch(video) {
+    setLoadingMsg("Buscando en SubDivX…");
     const url = searchUrl + "?video=" + encodeURIComponent(video);
     htmx.ajax("GET", url, {
       target: "#results-area",
