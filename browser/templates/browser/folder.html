@@ -74,7 +74,9 @@
   {% endif %}
 
   <!-- Indicador de carga -->
-  <div id="loading-indicator" class="htmx-indicator mb-2">
+  <div id="loading-indicator" class="htmx-indicator mb-2"
+    hx-on:htmx:after-request="this.style.display='none'"
+  >
     <div class="spinner"></div>
     <span id="loading-msg">Buscando en SubDivX…</span>
   </div>
@@ -116,6 +118,8 @@
   function setLoadingMsg(msg) {
     const el = document.getElementById("loading-msg");
     if (el) el.textContent = msg;
+    const ind = document.getElementById("loading-indicator");
+    if (ind) ind.style.display = "flex";
   }
 
   function triggerSearch(video) {
