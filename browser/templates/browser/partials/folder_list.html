@@ -4,23 +4,117 @@
     <p style="font-size:0.8rem;">Formato: <code>Título (año)</code></p>
   </div>
 {% else %}
-  {% for folder in folders %}
-  <a href="{% url 'browser:folder_detail' folder.folder_name %}" class="folder-card">
-    <div style="color:var(--accent); font-size:1.4rem; flex-shrink:0;">🎬</div>
-    <div style="flex:1; min-width:0;">
-      <div class="folder-title">{{ folder.title }}</div>
-      <div class="folder-meta mt-1">
-        {{ folder.videos|length }} archivo{{ folder.videos|length|pluralize:"s" }} de video
+
+  <!-- Pestañas -->
+  <div style="display:flex; gap:0.4rem; margin-bottom:1.25rem;">
+    <button
+      class="tab-btn tab-active"
+      id="tab-pending"
+      onclick="switchTab('pending')"
+    >
+      Sin subtítulo
+      <span id="count-pending" style="
+        background:var(--surface-2);
+        border:1px solid var(--border);
+        border-radius:3px;
+        font-size:0.72rem;
+        padding:0.05rem 0.35rem;
+        margin-left:0.3rem;
+      "></span>
+    </button>
+    <button
+      class="tab-btn"
+      id="tab-done"
+      onclick="switchTab('done')"
+    >
+      Con subtítulo
+      <span id="count-done" style="
+        background:var(--surface-2);
+        border:1px solid var(--border);
+        border-radius:3px;
+        font-size:0.72rem;
+        padding:0.05rem 0.35rem;
+        margin-left:0.3rem;
+      "></span>
+    </button>
+  </div>
+
+  <!-- Lista sin subtítulo -->
+  <div id="list-pending">
+    {% for folder in folders %}{% if not folder.has_subtitle %}
+    <a href="{% url 'browser:folder_detail' folder.folder_name %}" class="folder-card">
+      <div style="color:var(--accent); font-size:1.4rem; flex-shrink:0;">🎬</div>
+      <div style="flex:1; min-width:0;">
+        <div class="folder-title">{{ folder.title }}</div>
+        <div class="folder-meta mt-1">
+          {{ folder.videos|length }} archivo{{ folder.videos|length|pluralize:"s" }} de video
+        </div>
       </div>
-    </div>
-    <div class="d-flex gap-2 flex-wrap justify-content-end" style="flex-shrink:0;">
-      <span class="badge-year">{{ folder.year }}</span>
-      <span class="badge-year">{{ folder.resolution }}</span>
-      <span class="badge-type">{{ folder.release_type }}</span>
-      {% if folder.has_subtitle %}
+      <div class="d-flex gap-2 flex-wrap justify-content-end" style="flex-shrink:0;">
+        <span class="badge-year">{{ folder.year }}</span>
+        <span class="badge-year">{{ folder.resolution }}</span>
+        <span class="badge-type">{{ folder.release_type }}</span>
+      </div>
+    </a>
+    {% endif %}{% endfor %}
+  </div>
+
+  <!-- Lista con subtítulo -->
+  <div id="list-done" style="display:none;">
+    {% for folder in folders %}{% if folder.has_subtitle %}
+    <a href="{% url 'browser:folder_detail' folder.folder_name %}" class="folder-card">
+      <div style="color:var(--accent); font-size:1.4rem; flex-shrink:0;">🎬</div>
+      <div style="flex:1; min-width:0;">
+        <div class="folder-title">{{ folder.title }}</div>
+        <div class="folder-meta mt-1">
+          {{ folder.videos|length }} archivo{{ folder.videos|length|pluralize:"s" }} de video
+        </div>
+      </div>
+      <div class="d-flex gap-2 flex-wrap justify-content-end" style="flex-shrink:0;">
+        <span class="badge-year">{{ folder.year }}</span>
+        <span class="badge-year">{{ folder.resolution }}</span>
+        <span class="badge-type">{{ folder.release_type }}</span>
         <span class="badge-sub-ok">✓ sub</span>
-      {% endif %}
-    </div>
-  </a>
-  {% endfor %}
+      </div>
+    </a>
+    {% endif %}{% endfor %}
+  </div>
+
+  <style>
+    .tab-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: var(--radius);
+      padding: 0.4rem 0.9rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .tab-btn:hover { border-color: var(--accent-dim); color: var(--text); }
+    .tab-active {
+      border-color: var(--accent) !important;
+      color: var(--accent) !important;
+      background: var(--surface-2);
+    }
+  </style>
+
+  <script>
+    function switchTab(tab) {
+      document.getElementById('list-pending').style.display = tab === 'pending' ? 'block' : 'none';
+      document.getElementById('list-done').style.display    = tab === 'done'    ? 'block' : 'none';
+      document.getElementById('tab-pending').classList.toggle('tab-active', tab === 'pending');
+      document.getElementById('tab-done').classList.toggle('tab-active',    tab === 'done');
+    }
+
+    // Contar y mostrar badges
+    (function() {
+      const pending = document.querySelectorAll('#list-pending .folder-card').length;
+      const done    = document.querySelectorAll('#list-done .folder-card').length;
+      document.getElementById('count-pending').textContent = pending;
+      document.getElementById('count-done').textContent    = done;
+    })();
+  </script>
+
 {% endif %}
