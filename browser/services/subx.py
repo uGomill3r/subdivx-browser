@@ -8,14 +8,14 @@ logger = logging.getLogger(__name__)
 
 SUBX_BASE_URL = "https://subx-api.duckdns.org/api"
 
-# Palabras clave por tipo de release
+# Referencia histórica — los valores activos se leen desde config.json via get_release_types()/get_resolutions()
 QUALITY_KEYWORDS = {
     "BluRay": ["bluray", "blu-ray", "bdrip", "brip"],
     "WEBRip": ["webrip", "web-rip"],
     "WEB-DL": ["webdl", "web-dl", "web dl"],
+    "HDTV":   ["hdtv"],
 }
 
-# Palabras clave por resolución
 RESOLUTION_KEYWORDS = {
     "720p":  ["720p", "720"],
     "1080p": ["1080p", "1080", "fhd"],
@@ -80,25 +80,36 @@ def filter_by_user(results: list[dict], username: str) -> list[dict]:
     return filtered
 
 
+def _keywords_for(name: str, config_list: list[dict], fallback: dict) -> list[str]:
+    """
+    Busca las keywords configuradas para un nombre dado en la lista de config.
+    Si no se encuentra, usa el fallback dict (QUALITY_KEYWORDS o RESOLUTION_KEYWORDS).
+    """
+    for entry in config_list:
+        if entry.get("name", "").lower() == name.lower():
+            return entry.get("keywords") or [name.lower()]
+    return fallback.get(name, [name.lower()])
+
+
 def filter_by_quality(results: list[dict], release_type: str) -> list[dict]:
-    """Filtra resultados por tipo de release usando QUALITY_KEYWORDS."""
-    keywords = QUALITY_KEYWORDS.get(release_type, [release_type.lower()])
+    """Filtra resultados por tipo de release usando keywords desde config.json."""
+    keywords = _keywords_for(release_type, get_release_types(), QUALITY_KEYWORDS)
     filtered = [
         r for r in results
         if any(kw in (r.get("description") or "").lower() for kw in keywords)
     ]
-    logger.info("Filtro por tipo '%s' — encontrados: %d", release_type, len(filtered))
+    logger.info("Filtro por tipo '%s' keywords=%s — encontrados: %d", release_type, keywords, len(filtered))
     return filtered
 
 
 def filter_by_resolution(results: list[dict], resolution: str) -> list[dict]:
-    """Filtra resultados por resolución usando RESOLUTION_KEYWORDS."""
-    keywords = RESOLUTION_KEYWORDS.get(resolution.lower(), [resolution.lower()])
+    """Filtra resultados por resolución usando keywords desde config.json."""
+    keywords = _keywords_for(resolution, get_resolutions(), RESOLUTION_KEYWORDS)
     filtered = [
         r for r in results
         if any(kw in (r.get("description") or "").lower() for kw in keywords)
     ]
-    logger.info("Filtro por resolución '%s' — encontrados: %d", resolution, len(filtered))
+    logger.info("Filtro por resolución '%s' keywords=%s — encontrados: %d", resolution, keywords, len(filtered))
     return filtered
 
 

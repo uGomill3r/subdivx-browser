@@ -18,6 +18,21 @@ _DEFAULTS = {
 }
 
 
+# Estructura por defecto de tipos y resoluciones con sus keywords de búsqueda
+DEFAULT_RELEASE_TYPES = [
+    {"name": "BluRay", "keywords": ["bluray", "blu-ray", "bdrip", "brip"]},
+    {"name": "WEBRip", "keywords": ["webrip", "web-rip"]},
+    {"name": "WEB-DL", "keywords": ["webdl", "web-dl", "web dl"]},
+    {"name": "HDTV",   "keywords": ["hdtv"]},
+]
+
+DEFAULT_RESOLUTIONS = [
+    {"name": "720p",  "keywords": ["720p", "720"]},
+    {"name": "1080p", "keywords": ["1080p", "1080", "fhd"]},
+    {"name": "2160p", "keywords": ["2160p", "2160", "4k", "uhd"]},
+]
+
+
 def _settings_defaults() -> dict:
     """Retorna valores por defecto tomados desde settings/env."""
     return {
@@ -25,8 +40,8 @@ def _settings_defaults() -> dict:
         "preferred_user": settings.SUBDIVX_PREFERRED_USER,
         "preferred_words": [],
         "media_root_options": [],   # lista de rutas predefinidas para el select
-        "release_types": ["BluRay", "WEBRip", "WEB-DL", "HDTV"],
-        "resolutions": ["720p", "1080p", "2160p"],
+        "release_types": DEFAULT_RELEASE_TYPES,
+        "resolutions": DEFAULT_RESOLUTIONS,
     }
 
 
@@ -80,9 +95,9 @@ def save_config(
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         logger.info(
-            "config.json guardado — media_root: '%s', preferred_user: '%s', palabras: %s, tipos: %s, resoluciones: %s",
+            "config.json guardado — media_root: '%s', preferred_user: '%s', palabras: %s, tipos: %d, resoluciones: %d",
             data["media_root"], data["preferred_user"], data["preferred_words"],
-            data["release_types"], data["resolutions"],
+            len(data["release_types"]), len(data["resolutions"]),
         )
         return True
     except OSError as e:
@@ -114,13 +129,13 @@ def get_preferred_words() -> list[str]:
     return config.get("preferred_words", [])
 
 
-def get_release_types() -> list[str]:
-    """Retorna los tipos de release activos definidos en config.json."""
+def get_release_types() -> list[dict]:
+    """Retorna los tipos de release activos con sus keywords desde config.json."""
     config = load_config()
-    return config.get("release_types", _settings_defaults()["release_types"])
+    return config.get("release_types", DEFAULT_RELEASE_TYPES)
 
 
-def get_resolutions() -> list[str]:
-    """Retorna las resoluciones activas definidas en config.json."""
+def get_resolutions() -> list[dict]:
+    """Retorna las resoluciones activas con sus keywords desde config.json."""
     config = load_config()
-    return config.get("resolutions", _settings_defaults()["resolutions"])
+    return config.get("resolutions", DEFAULT_RESOLUTIONS)

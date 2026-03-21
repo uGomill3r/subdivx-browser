@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 from django.shortcuts import render, redirect
 from django.http import HttpRequest, HttpResponse
@@ -344,10 +345,16 @@ def settings_view(request: HttpRequest) -> HttpResponse:
         preferred_user = request.POST.get("preferred_user", "").strip()
         words_raw = request.POST.get("preferred_words", "").strip()
         preferred_words = [w.strip() for w in words_raw.split(",") if w.strip()]
-        types_raw = request.POST.get("release_types", "").strip()
-        release_types = [t.strip() for t in types_raw.split(",") if t.strip()]
-        resolutions_raw = request.POST.get("resolutions", "").strip()
-        resolutions = [r.strip() for r in resolutions_raw.split(",") if r.strip()]
+        try:
+            release_types = json.loads(request.POST.get("release_types", "[]"))
+        except (json.JSONDecodeError, ValueError):
+            logger.warning("release_types POST inválido — usando config existente")
+            release_types = get_release_types()
+        try:
+            resolutions = json.loads(request.POST.get("resolutions", "[]"))
+        except (json.JSONDecodeError, ValueError):
+            logger.warning("resolutions POST inválido — usando config existente")
+            resolutions = get_resolutions()
 
         # Validar que la ruta exista
         if not media_root:
@@ -371,8 +378,8 @@ def settings_view(request: HttpRequest) -> HttpResponse:
             "media_root": media_root,
             "preferred_user": preferred_user,
             "preferred_words_text": ",".join(preferred_words),
-            "release_types_text": ",".join(release_types),
-            "resolutions_text": ",".join(resolutions),
+            "release_types_json": json.dumps(release_types, ensure_ascii=False),
+            "resolutions_json": json.dumps(resolutions, ensure_ascii=False),
         }
     else:
         raw = load_config()
@@ -381,8 +388,8 @@ def settings_view(request: HttpRequest) -> HttpResponse:
             "media_root": raw["media_root"],
             "preferred_user": raw["preferred_user"],
             "preferred_words_text": ",".join(raw.get("preferred_words", [])),
-            "release_types_text": ",".join(raw.get("release_types", get_release_types())),
-            "resolutions_text": ",".join(raw.get("resolutions", get_resolutions())),
+            "release_types_json": json.dumps(raw.get("release_types", get_release_types()), ensure_ascii=False),
+            "resolutions_json": json.dumps(raw.get("resolutions", get_resolutions()), ensure_ascii=False),
         }
         logger.info("Vista de configuración cargada — saved=%s", success)
 

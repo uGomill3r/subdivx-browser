@@ -131,32 +131,52 @@
   </div>
 
 
-  <!-- Tipos de release -->
+  <!-- Tipos de release con keywords -->
   <div style="margin-bottom: 1.75rem;">
     <div class="section-header">Tipos de release</div>
     <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem;">
-      Tipos de release activos para el filtro de búsqueda inicial (ej: BluRay, WEBRip, WEB-DL, HDTV).
+      Tipos activos para el filtro inicial. Hacé click en un tipo para editar sus keywords de búsqueda.
     </label>
     <div id="types-list" style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.6rem; min-height:1.5rem;"></div>
     <div style="display:flex; gap:0.5rem;">
-      <input type="text" id="type-input" class="input-dark" placeholder="Ej: HDTV" spellcheck="false" autocomplete="off" style="flex:1;" />
-      <button type="button" class="btn-outline" onclick="addChip('type')">+ Agregar</button>
+      <input type="text" id="type-name-input" class="input-dark" placeholder="Ej: HDTV" spellcheck="false" autocomplete="off" style="flex:1;" />
+      <button type="button" class="btn-outline" onclick="addType()">+ Agregar</button>
     </div>
-    <input type="hidden" name="release_types" id="types-hidden" value="{{ config.release_types_text }}" />
+    <input type="hidden" name="release_types" id="types-hidden" value="{{ config.release_types_json }}" />
   </div>
 
-  <!-- Resoluciones -->
+  <!-- Resoluciones con keywords -->
   <div style="margin-bottom: 1.75rem;">
     <div class="section-header">Resoluciones</div>
     <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem;">
-      Resoluciones activas para el filtro de búsqueda inicial (ej: 720p, 1080p, 2160p).
+      Resoluciones activas para el filtro inicial. Hacé click en una para editar sus keywords de búsqueda.
     </label>
     <div id="res-list" style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.6rem; min-height:1.5rem;"></div>
     <div style="display:flex; gap:0.5rem;">
-      <input type="text" id="res-input" class="input-dark" placeholder="Ej: 2160p" spellcheck="false" autocomplete="off" style="flex:1;" />
-      <button type="button" class="btn-outline" onclick="addChip('res')">+ Agregar</button>
+      <input type="text" id="res-name-input" class="input-dark" placeholder="Ej: 2160p" spellcheck="false" autocomplete="off" style="flex:1;" />
+      <button type="button" class="btn-outline" onclick="addResolution()">+ Agregar</button>
     </div>
-    <input type="hidden" name="resolutions" id="res-hidden" value="{{ config.resolutions_text }}" />
+    <input type="hidden" name="resolutions" id="res-hidden" value="{{ config.resolutions_json }}" />
+  </div>
+
+  <!-- Modal de edición de keywords -->
+  <div id="kw-modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center;">
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem; width:min(420px,90vw); position:relative;">
+      <div style="font-family:'Inter',sans-serif; font-weight:700; font-size:1rem; margin-bottom:0.25rem;">
+        Keywords para <span id="kw-modal-name" style="color:var(--accent);"></span>
+      </div>
+      <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:1rem;">
+        Términos que se buscan en la descripción del subtítulo (insensible a mayúsculas).
+      </div>
+      <div id="kw-chips" style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.75rem; min-height:1.5rem;"></div>
+      <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+        <input type="text" id="kw-input" class="input-dark" placeholder="Ej: blu-ray" spellcheck="false" autocomplete="off" style="flex:1;" />
+        <button type="button" class="btn-outline" onclick="addKeyword()">+ Agregar</button>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+        <button type="button" class="btn-accent" onclick="closeKwModal()">Listo</button>
+      </div>
+    </div>
   </div>
 
   <div style="display:flex; gap:0.75rem; align-items:center;">
@@ -193,72 +213,169 @@
 </style>
 
 <script>
-  // Configuración de cada grupo de chips: { id del hidden, id del listado, id del input }
-  const chipGroups = {
-    word: { hidden: "words-hidden", list: "words-list",  input: "word-input",  empty: "Sin palabras definidas" },
-    type: { hidden: "types-hidden", list: "types-list",  input: "type-input",  empty: "Sin tipos definidos" },
-    res:  { hidden: "res-hidden",   list: "res-list",    input: "res-input",   empty: "Sin resoluciones definidas" },
-  };
+  // ── Palabras del filtro (chips simples) ──────────────────────────────────
+  const wordsHidden = document.getElementById("words-hidden");
 
-  function getItems(group) {
-    return document.getElementById(group.hidden).value
-      .split(",").map(w => w.trim()).filter(w => w.length > 0);
+  function getWords() {
+    return wordsHidden.value.split(",").map(w => w.trim()).filter(w => w);
   }
+  function setWords(words) { wordsHidden.value = words.join(","); }
 
-  function setItems(group, items) {
-    document.getElementById(group.hidden).value = items.join(",");
-  }
-
-  function renderGroup(key) {
-    const group = chipGroups[key];
-    const items = getItems(group);
-    const list  = document.getElementById(group.list);
+  function renderWords() {
+    const list  = document.getElementById("words-list");
+    const words = getWords();
     list.innerHTML = "";
-    if (items.length === 0) {
-      list.innerHTML = "<span style='color:var(--text-muted); font-size:0.8rem;'>" + group.empty + "</span>";
+    if (!words.length) {
+      list.innerHTML = "<span style='color:var(--text-muted);font-size:0.8rem;'>Sin palabras definidas</span>";
       return;
     }
-    items.forEach((item, i) => {
+    words.forEach((w, i) => {
       const chip = document.createElement("span");
       chip.className = "word-chip";
-      chip.innerHTML = item + ' <button type="button" onclick="removeChip(\'' + key + '\',' + i + ')" title="Eliminar">✕</button>';
+      chip.innerHTML = w + ' <button type="button" onclick="removeWord(' + i + ')" title="Eliminar">✕</button>';
+      list.appendChild(chip);
+    });
+  }
+  function addChip(unused) { // compatibilidad — solo se usa para palabras
+    const input = document.getElementById("word-input");
+    const val   = input.value.trim();
+    if (!val) return;
+    const words = getWords();
+    if (!words.includes(val)) { words.push(val); setWords(words); renderWords(); }
+    input.value = ""; input.focus();
+  }
+  function removeWord(i) {
+    const words = getWords(); words.splice(i, 1); setWords(words); renderWords();
+  }
+  document.getElementById("word-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); addChip(); }
+  });
+
+  // ── Tipos de release y Resoluciones (chips con keywords) ─────────────────
+  let typesData = [];
+  let resData   = [];
+
+  try { typesData = JSON.parse(document.getElementById("types-hidden").value || "[]"); } catch(e) { typesData = []; }
+  try { resData   = JSON.parse(document.getElementById("res-hidden").value   || "[]"); } catch(e) { resData   = []; }
+
+  function saveTypesData()  { document.getElementById("types-hidden").value = JSON.stringify(typesData); }
+  function saveResData()    { document.getElementById("res-hidden").value   = JSON.stringify(resData); }
+
+  function renderTypeChips(data, listId, removeFn, editFn) {
+    const list = document.getElementById(listId);
+    list.innerHTML = "";
+    if (!data.length) {
+      list.innerHTML = "<span style='color:var(--text-muted);font-size:0.8rem;'>Sin tipos definidos</span>";
+      return;
+    }
+    data.forEach((entry, i) => {
+      const chip = document.createElement("span");
+      chip.className  = "word-chip";
+      chip.title      = "Keywords: " + (entry.keywords || []).join(", ");
+      chip.style.cursor = "pointer";
+      chip.innerHTML =
+        '<span onclick="' + editFn + '(' + i + ')" style="cursor:pointer;">' + entry.name + '</span>' +
+        ' <span style="color:var(--text-muted);font-size:0.72rem;margin:0 0.2rem;">(' + (entry.keywords||[]).length + ')</span>' +
+        ' <button type="button" onclick="' + removeFn + '(' + i + ')" title="Eliminar">✕</button>';
       list.appendChild(chip);
     });
   }
 
-  function addChip(key) {
-    const group = chipGroups[key];
-    const input = document.getElementById(group.input);
-    const val   = input.value.trim();
-    if (!val) return;
-    const items = getItems(group);
-    if (!items.includes(val)) {
-      items.push(val);
-      setItems(group, items);
-      renderGroup(key);
+  function renderTypes() { renderTypeChips(typesData, "types-list", "removeType", "editType"); }
+  function renderRes()   { renderTypeChips(resData,   "res-list",   "removeRes",  "editRes");  }
+
+  function addType() {
+    const input = document.getElementById("type-name-input");
+    const name  = input.value.trim();
+    if (!name) return;
+    if (typesData.some(t => t.name.toLowerCase() === name.toLowerCase())) { input.value = ""; return; }
+    typesData.push({ name: name, keywords: [name.toLowerCase()] });
+    saveTypesData(); renderTypes();
+    input.value = ""; input.focus();
+  }
+  function removeType(i) { typesData.splice(i, 1); saveTypesData(); renderTypes(); }
+
+  function addResolution() {
+    const input = document.getElementById("res-name-input");
+    const name  = input.value.trim();
+    if (!name) return;
+    if (resData.some(r => r.name.toLowerCase() === name.toLowerCase())) { input.value = ""; return; }
+    resData.push({ name: name, keywords: [name.toLowerCase()] });
+    saveResData(); renderRes();
+    input.value = ""; input.focus();
+  }
+  function removeRes(i) { resData.splice(i, 1); saveResData(); renderRes(); }
+
+  document.getElementById("type-name-input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addType(); } });
+  document.getElementById("res-name-input").addEventListener("keydown",  e => { if (e.key === "Enter") { e.preventDefault(); addResolution(); } });
+
+  // ── Modal de keywords ─────────────────────────────────────────────────────
+  let kwContext = null; // { dataRef, index, saveFn, renderFn }
+
+  function openKwModal(dataRef, index, saveFn, renderFn) {
+    kwContext = { dataRef, index, saveFn, renderFn };
+    document.getElementById("kw-modal-name").textContent = dataRef[index].name;
+    renderKwChips();
+    const backdrop = document.getElementById("kw-modal-backdrop");
+    backdrop.style.display = "flex";
+    document.getElementById("kw-input").focus();
+  }
+
+  function closeKwModal() {
+    document.getElementById("kw-modal-backdrop").style.display = "none";
+    kwContext.saveFn(); kwContext.renderFn();
+    kwContext = null;
+  }
+
+  function editType(i) { openKwModal(typesData, i, saveTypesData, renderTypes); }
+  function editRes(i)  { openKwModal(resData,   i, saveResData,   renderRes);   }
+
+  function renderKwChips() {
+    const list = document.getElementById("kw-chips");
+    const kws  = kwContext.dataRef[kwContext.index].keywords || [];
+    list.innerHTML = "";
+    if (!kws.length) {
+      list.innerHTML = "<span style='color:var(--text-muted);font-size:0.8rem;'>Sin keywords</span>";
+      return;
     }
-    input.value = "";
-    input.focus();
-  }
-
-  function removeChip(key, index) {
-    const group = chipGroups[key];
-    const items = getItems(group);
-    items.splice(index, 1);
-    setItems(group, items);
-    renderGroup(key);
-  }
-
-  // Enter en cualquier input de chip agrega el valor
-  ["word-input", "type-input", "res-input"].forEach(function(id) {
-    const keyMap = { "word-input": "word", "type-input": "type", "res-input": "res" };
-    document.getElementById(id).addEventListener("keydown", function(e) {
-      if (e.key === "Enter") { e.preventDefault(); addChip(keyMap[id]); }
+    kws.forEach((kw, i) => {
+      const chip = document.createElement("span");
+      chip.className = "word-chip";
+      chip.innerHTML = kw + ' <button type="button" onclick="removeKeyword(' + i + ')" title="Eliminar">✕</button>';
+      list.appendChild(chip);
     });
+  }
+
+  function addKeyword() {
+    const input = document.getElementById("kw-input");
+    const val   = input.value.trim().toLowerCase();
+    if (!val) return;
+    const kws = kwContext.dataRef[kwContext.index].keywords || [];
+    if (!kws.includes(val)) { kws.push(val); kwContext.dataRef[kwContext.index].keywords = kws; }
+    renderKwChips();
+    input.value = ""; input.focus();
+  }
+
+  function removeKeyword(i) {
+    const kws = kwContext.dataRef[kwContext.index].keywords || [];
+    kws.splice(i, 1);
+    kwContext.dataRef[kwContext.index].keywords = kws;
+    renderKwChips();
+  }
+
+  document.getElementById("kw-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); addKeyword(); }
   });
 
-  // Render inicial de los tres grupos
-  Object.keys(chipGroups).forEach(renderGroup);
+  // Cerrar modal con Escape
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && kwContext) closeKwModal();
+  });
+
+  // ── Render inicial ────────────────────────────────────────────────────────
+  renderWords();
+  renderTypes();
+  renderRes();
 </script>
 
 {% endblock %}
