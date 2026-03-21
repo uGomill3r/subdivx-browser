@@ -7,6 +7,7 @@ App Django 5.2 para buscar y descargar subtítulos desde SubDivX (vía SubX API)
 - Raspberry Pi OS
 - Python 3.11+
 - nginx
+- `unrar` (para soporte de archivos RAR): `sudo apt install unrar -y`
 
 ## Instalación
 
@@ -17,7 +18,7 @@ git clone https://github.com/tu-usuario/subdivx-browser.git
 cd subdivx-browser
 ```
 
-### 2. Entorno virtual e dependencias
+### 2. Entorno virtual y dependencias
 
 ```bash
 python3 -m venv venv
@@ -43,7 +44,13 @@ MEDIA_ROOT=/ruta/a/tu/carpeta/de/videos
 MEDIA_EXCLUDED_FOLDERS=carpeta1,carpeta2
 ```
 
-### 4. Servicio systemd
+### 4. Archivos estáticos
+
+```bash
+python manage.py collectstatic --noinput
+```
+
+### 5. Servicio systemd
 
 ```bash
 sudo nano /etc/systemd/system/subdivx-browser.service
@@ -72,7 +79,7 @@ sudo systemctl enable subdivx-browser
 sudo systemctl start subdivx-browser
 ```
 
-### 5. nginx como proxy
+### 6. nginx como proxy
 
 ```bash
 sudo apt install nginx -y
@@ -84,6 +91,10 @@ sudo nano /etc/nginx/sites-available/subdivx-browser
 server {
     listen 8002;
     server_name _;
+
+    location /static/ {
+        alias /home/pi/subdivx-browser/staticfiles/;
+    }
 
     location / {
         proxy_pass http://127.0.0.1:8001;
@@ -113,6 +124,8 @@ http://<ip-raspberry>:8002
 ```bash
 cd ~/subdivx-browser
 git pull
+pip install -r requirements.txt --index-url https://pypi.org/simple/
+python manage.py collectstatic --noinput
 sudo systemctl restart subdivx-browser
 ```
 
@@ -132,36 +145,60 @@ sudo journalctl -u nginx -f
 Título (año) [resolución] [tipo opcional] ...
 ```
 
-- La resolución y el tipo se leen del nombre del archivo de video si no están en la carpeta
+- La resolución y el tipo se leen del nombre del archivo de video
 - Si no hay tipo, se asume BluRay por defecto
 
 ## Búsqueda de subtítulos (cascada)
 
 ### Sin keyword (búsqueda inicial automática):
-1. Usuario preferido + tipo + resolución + palabras preferidas (si están configuradas)
+1. Usuario preferido + tipo + resolución + palabras preferidas (AND, si están configuradas)
 2. Usuario preferido + tipo + resolución
 3. Usuario preferido + tipo
 4. Usuario preferido (sin filtros)
-5. → Si no hay resultados: muestra formulario de keyword
+5. → Si no hay resultados: muestra formulario de keyword y botón "Ver todos"
 
-### Con keyword:
-6. Palabra clave en descripción
-7. Tipo + resolución (sin usuario)
-8. Todos los disponibles
+### Con keyword manual:
+- Busca directamente en todos los resultados de la API por las palabras ingresadas (AND)
+- Varias palabras separadas por espacio: todas deben aparecer en la descripción
+- Si no hay resultados con keyword: cae a tipo + resolución, luego todos los disponibles
+
+### Ver todos:
+- Disponible en cualquier momento, muestra todos los resultados sin filtrar
+
+## Descarga de subtítulos
+
+Los archivos descargados pueden estar comprimidos (ZIP o RAR):
+- **Un solo .srt en el archivo**: se extrae y guarda automáticamente
+- **Múltiples .srt**: se muestra un modal para elegir cuál guardar
+
+Proceso al guardar:
+1. Si existe `video.srt` → renombrar a `video.en.srt`
+2. Limpiar carpeta: eliminar todo excepto `.mp4`, `.srt` y carpetas `subtitle/subtitles`
+3. Descargar y extraer subtítulo
+4. Guardar como `video.es.srt`
 
 ## Configuración desde la interfaz
 
-La app incluye una vista de configuración accesible desde el ícono ⚙ en la barra superior (`/settings/`). Permite cambiar sin reiniciar el servicio:
+Accesible desde el ícono ⚙ en la barra superior (`/settings/`). Permite cambiar sin reiniciar el servicio:
 
-- **Ruta de la biblioteca**: carpeta raíz donde están las películas/series
+- **Ruta de la biblioteca**: seleccionable desde lista predefinida en `config.json`, o input libre
 - **Usuario preferido**: usuario de SubDivX priorizado en la búsqueda inicial
-- **Palabras del filtro inicial**: términos adicionales que se aplican sobre los resultados del usuario preferido (ej: `LATINO`, `ESPAÑOL`)
+- **Palabras del filtro inicial**: chips editables, se aplican como AND sobre usuario + tipo + resolución
 
-Los cambios se guardan en `config.json` en la raíz del proyecto y tienen prioridad sobre las variables del `.env`. Si `config.json` no existe, se usan los valores del `.env`.
+Los cambios se guardan en `config.json` (no incluido en el repo) y tienen prioridad sobre `.env`.
 
-## Lógica al descargar un subtítulo
+### Formato de config.json
 
-1. Si existe `video.srt` → renombrar a `video.en.srt`
-2. Limpiar carpeta: eliminar todo excepto `.mp4`, `.srt` y carpetas `subtitle/subtitles`
-3. Descargar subtítulo de SubX API
-4. Guardar como `video.es.srt`
+```json
+{
+  "media_root": "/mnt/HDD/Descargas",
+  "preferred_user": "TaMaBin",
+  "preferred_words": ["LATINO"],
+  "media_root_options": [
+    "/mnt/HDD/Descargas",
+    "/mnt/HDD/Library/Movies/"
+  ]
+}
+```
+
+`media_root_options` se edita manualmente en el archivo. Si está vacío o ausente, se muestra un input de texto libre.

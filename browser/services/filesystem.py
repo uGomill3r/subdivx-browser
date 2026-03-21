@@ -23,8 +23,8 @@ _TITLE_YEAR_PATTERN = re.compile(
 )
 
 # Archivo de video: resolución y tipo se leen del nombre del archivo
-_RESOLUTION_PATTERN = re.compile(r'(?P<resolution>720p|1080p|2160p)', re.IGNORECASE)
-_TYPE_PATTERN = re.compile(r'(?P<type>BluRay|BRRip|BDRip|WEBRip|WEB-DL|HDTV)', re.IGNORECASE)
+_RESOLUTION_PATTERN = re.compile(r"\b(?P<resolution>720p|1080p|2160p)\b", re.IGNORECASE)
+_TYPE_PATTERN = re.compile(r"\b(?P<type>BluRay|BRRip|BDRip|WEBRip|WEB-DL|HDTV)\b", re.IGNORECASE)
 
 # Normalización de variantes al valor canónico
 _TYPE_NORMALIZE = {

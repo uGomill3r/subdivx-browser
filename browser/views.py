@@ -246,12 +246,6 @@ def download_and_save(request: HttpRequest, folder_name: str) -> HttpResponse:
     # Limpiar carpeta antes de guardar
     deleted_files = clean_folder(folder.folder_path, video_filename)
 
-    # Renombrar .srt sin .es a .en.srt si existe
-    renamed_to_english = rename_plain_srt_to_english(folder.folder_path, video_filename)
-
-    # Limpiar carpeta antes de guardar
-    deleted_files = clean_folder(folder.folder_path, video_filename)
-
     # Guardar .es.srt
     try:
         saved_path = save_subtitle(folder.folder_path, video_filename, content)
