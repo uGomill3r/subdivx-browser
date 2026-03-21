@@ -343,11 +343,11 @@ def settings_view(request: HttpRequest) -> HttpResponse:
         media_root = request.POST.get("media_root", "").strip()
         preferred_user = request.POST.get("preferred_user", "").strip()
         words_raw = request.POST.get("preferred_words", "").strip()
-        preferred_words = [w.strip() for w in words_raw.splitlines() if w.strip()]
+        preferred_words = [w.strip() for w in words_raw.split(",") if w.strip()]
         types_raw = request.POST.get("release_types", "").strip()
-        release_types = [t.strip() for t in types_raw.splitlines() if t.strip()]
+        release_types = [t.strip() for t in types_raw.split(",") if t.strip()]
         resolutions_raw = request.POST.get("resolutions", "").strip()
-        resolutions = [r.strip() for r in resolutions_raw.splitlines() if r.strip()]
+        resolutions = [r.strip() for r in resolutions_raw.split(",") if r.strip()]
 
         # Validar que la ruta exista
         if not media_root:
@@ -370,9 +370,9 @@ def settings_view(request: HttpRequest) -> HttpResponse:
         config = {
             "media_root": media_root,
             "preferred_user": preferred_user,
-            "preferred_words_text": "\n".join(preferred_words),
-            "release_types_text": "\n".join(release_types),
-            "resolutions_text": "\n".join(resolutions),
+            "preferred_words_text": ",".join(preferred_words),
+            "release_types_text": ",".join(release_types),
+            "resolutions_text": ",".join(resolutions),
         }
     else:
         raw = load_config()
@@ -380,9 +380,9 @@ def settings_view(request: HttpRequest) -> HttpResponse:
         config = {
             "media_root": raw["media_root"],
             "preferred_user": raw["preferred_user"],
-            "preferred_words_text": "\n".join(raw.get("preferred_words", [])),
-            "release_types_text": "\n".join(raw.get("release_types", get_release_types())),
-            "resolutions_text": "\n".join(raw.get("resolutions", get_resolutions())),
+            "preferred_words_text": ",".join(raw.get("preferred_words", [])),
+            "release_types_text": ",".join(raw.get("release_types", get_release_types())),
+            "resolutions_text": ",".join(raw.get("resolutions", get_resolutions())),
         }
         logger.info("Vista de configuración cargada — saved=%s", success)
 

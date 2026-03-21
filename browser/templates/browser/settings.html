@@ -202,11 +202,11 @@
 
   function getItems(group) {
     return document.getElementById(group.hidden).value
-      .split("\n").map(w => w.trim()).filter(w => w.length > 0);
+      .split(",").map(w => w.trim()).filter(w => w.length > 0);
   }
 
   function setItems(group, items) {
-    document.getElementById(group.hidden).value = items.join("\n");
+    document.getElementById(group.hidden).value = items.join(",");
   }
 
   function renderGroup(key) {
