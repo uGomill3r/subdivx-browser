@@ -2,8 +2,7 @@
   "name": "SubDivX Browser",
   "short_name": "SubDivX",
   "description": "Buscador y descargador de subtítulos desde SubDivX",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "http://pibox.local:8002/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0d0f14",
@@ -11,17 +10,17 @@
   "lang": "es",
   "icons": [
     {
-      "src": "/static/browser/apple-touch-icon.png",
+      "src": "http://pibox.local:8002/static/browser/apple-touch-icon.png",
       "type": "image/png",
       "sizes": "180x180"
     },
     {
-      "src": "/static/browser/icon-192.png",
+      "src": "http://pibox.local:8002/static/browser/icon-192.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "/static/browser/icon-512.png",
+      "src": "http://pibox.local:8002/static/browser/icon-512.png",
       "type": "image/png",
       "sizes": "512x512"
     }
