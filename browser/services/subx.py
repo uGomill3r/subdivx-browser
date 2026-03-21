@@ -2,7 +2,7 @@ import logging
 import requests
 from dataclasses import dataclass
 from django.conf import settings
-from browser.services.config import get_preferred_user, get_preferred_words
+from browser.services.config import get_preferred_user, get_preferred_words, get_release_types, get_resolutions
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +41,15 @@ def _get_headers() -> dict:
     }
 
 
-def search_subtitles(title: str, limit: int = 20) -> list[dict]:
+def search_subtitles(title: str, year: str = "", limit: int = 20) -> list[dict]:
     """
-    Busca subtítulos en SubX API por título.
+    Busca subtítulos en SubX API por título y año opcional.
     Retorna lista cruda de resultados.
     """
     url = f"{SUBX_BASE_URL}/subtitles/search"
-    params = {"title": title, "limit": limit}
+    params: dict = {"title": title, "limit": limit}
+    if year:
+        params["year"] = year
 
     try:
         response = requests.get(url, headers=_get_headers(), params=params, timeout=10)
@@ -58,7 +60,7 @@ def search_subtitles(title: str, limit: int = 20) -> list[dict]:
             results = data
         else:
             results = data.get("items") or data.get("results", [])
-        logger.info("Búsqueda '%s' — resultados: %d", title, len(results))
+        logger.info("Búsqueda '%s' año=%s — resultados: %d", title, year or "—", len(results))
         return results
     except requests.exceptions.HTTPError as e:
         logger.error("HTTP error en búsqueda SubX '%s': %s", title, e)
@@ -79,7 +81,7 @@ def filter_by_user(results: list[dict], username: str) -> list[dict]:
 
 
 def filter_by_quality(results: list[dict], release_type: str) -> list[dict]:
-    """Filtra resultados por tipo de release (BluRay, WEBRip, WEB-DL)."""
+    """Filtra resultados por tipo de release usando QUALITY_KEYWORDS."""
     keywords = QUALITY_KEYWORDS.get(release_type, [release_type.lower()])
     filtered = [
         r for r in results
@@ -90,7 +92,7 @@ def filter_by_quality(results: list[dict], release_type: str) -> list[dict]:
 
 
 def filter_by_resolution(results: list[dict], resolution: str) -> list[dict]:
-    """Filtra resultados por resolución (720p, 1080p, 2160p)."""
+    """Filtra resultados por resolución usando RESOLUTION_KEYWORDS."""
     keywords = RESOLUTION_KEYWORDS.get(resolution.lower(), [resolution.lower()])
     filtered = [
         r for r in results
@@ -166,27 +168,29 @@ def search_by_preferred_user(
 
 def search_with_fallback(
     title: str,
+    year: str,
     release_type: str,
     resolution: str,
     keyword: str = "",
 ) -> tuple[list[SubtitleResult], str]:
     """
-    Búsqueda en cascada completa (se usa cuando hay keyword):
-      1. usuario + tipo + resolución
-      2. usuario + tipo
-      3. usuario (sin filtros)
-      4. keyword en descripción
-      5. tipo + resolución (sin usuario)
-      6. todos los resultados
+    Búsqueda en cascada completa (se usa cuando hay keyword o sin usuario configurado):
+      1. keyword en descripción (si se provee)
+      2. usuario + tipo + resolución + palabras preferidas
+      3. usuario + tipo + resolución
+      4. usuario + tipo
+      5. usuario (sin filtros)
+      6. tipo + resolución (sin usuario)
+      7. todos los resultados
 
     Retorna (lista_de_resultados, criterio_usado).
     """
     preferred_user = get_preferred_user()
     preferred_words = get_preferred_words()
-    all_results = search_subtitles(title)
+    all_results = search_subtitles(title, year=year)
 
     if not all_results:
-        logger.warning("Sin resultados en SubX para: '%s'", title)
+        logger.warning("Sin resultados en SubX para: '%s' (%s)", title, year)
         return [], "none"
 
     # Si hay keyword explícita del usuario, buscar directo en todos los resultados
@@ -212,10 +216,10 @@ def search_with_fallback(
     return _to_subtitle_results(all_results, "all"), "all"
 
 
-def get_all_results(title: str) -> list[SubtitleResult]:
+def get_all_results(title: str, year: str = "") -> list[SubtitleResult]:
     """Retorna todos los resultados de la API sin ningún filtro aplicado."""
-    raw = search_subtitles(title)
-    logger.info("get_all_results para '%s' — total: %d", title, len(raw))
+    raw = search_subtitles(title, year=year)
+    logger.info("get_all_results para '%s' (%s) — total: %d", title, year or "—", len(raw))
     return _to_subtitle_results(raw, "all")
 
 

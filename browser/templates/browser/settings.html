@@ -130,6 +130,35 @@
     <input type="hidden" name="preferred_words" id="words-hidden" value="{{ config.preferred_words_text }}" />
   </div>
 
+
+  <!-- Tipos de release -->
+  <div style="margin-bottom: 1.75rem;">
+    <div class="section-header">Tipos de release</div>
+    <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem;">
+      Tipos de release activos para el filtro de búsqueda inicial (ej: BluRay, WEBRip, WEB-DL, HDTV).
+    </label>
+    <div id="types-list" style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.6rem; min-height:1.5rem;"></div>
+    <div style="display:flex; gap:0.5rem;">
+      <input type="text" id="type-input" class="input-dark" placeholder="Ej: HDTV" spellcheck="false" autocomplete="off" style="flex:1;" />
+      <button type="button" class="btn-outline" onclick="addChip('type')">+ Agregar</button>
+    </div>
+    <input type="hidden" name="release_types" id="types-hidden" value="{{ config.release_types_text }}" />
+  </div>
+
+  <!-- Resoluciones -->
+  <div style="margin-bottom: 1.75rem;">
+    <div class="section-header">Resoluciones</div>
+    <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem;">
+      Resoluciones activas para el filtro de búsqueda inicial (ej: 720p, 1080p, 2160p).
+    </label>
+    <div id="res-list" style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.6rem; min-height:1.5rem;"></div>
+    <div style="display:flex; gap:0.5rem;">
+      <input type="text" id="res-input" class="input-dark" placeholder="Ej: 2160p" spellcheck="false" autocomplete="off" style="flex:1;" />
+      <button type="button" class="btn-outline" onclick="addChip('res')">+ Agregar</button>
+    </div>
+    <input type="hidden" name="resolutions" id="res-hidden" value="{{ config.resolutions_text }}" />
+  </div>
+
   <div style="display:flex; gap:0.75rem; align-items:center;">
     <button type="submit" class="btn-accent">Guardar configuración</button>
     <a href="{% url 'browser:index' %}" class="btn-outline" style="font-size:0.85rem;">Cancelar</a>
@@ -164,61 +193,72 @@
 </style>
 
 <script>
-  const hiddenInput = document.getElementById("words-hidden");
-  const wordsList   = document.getElementById("words-list");
-  const wordInput   = document.getElementById("word-input");
+  // Configuración de cada grupo de chips: { id del hidden, id del listado, id del input }
+  const chipGroups = {
+    word: { hidden: "words-hidden", list: "words-list",  input: "word-input",  empty: "Sin palabras definidas" },
+    type: { hidden: "types-hidden", list: "types-list",  input: "type-input",  empty: "Sin tipos definidos" },
+    res:  { hidden: "res-hidden",   list: "res-list",    input: "res-input",   empty: "Sin resoluciones definidas" },
+  };
 
-  function getWords() {
-    return hiddenInput.value.split("\n").map(w => w.trim()).filter(w => w.length > 0);
+  function getItems(group) {
+    return document.getElementById(group.hidden).value
+      .split("\n").map(w => w.trim()).filter(w => w.length > 0);
   }
 
-  function setWords(words) {
-    hiddenInput.value = words.join("\n");
+  function setItems(group, items) {
+    document.getElementById(group.hidden).value = items.join("\n");
   }
 
-  function renderChips() {
-    const words = getWords();
-    wordsList.innerHTML = "";
-    if (words.length === 0) {
-      wordsList.innerHTML = "<span style='color:var(--text-muted); font-size:0.8rem;'>Sin palabras definidas</span>";
+  function renderGroup(key) {
+    const group = chipGroups[key];
+    const items = getItems(group);
+    const list  = document.getElementById(group.list);
+    list.innerHTML = "";
+    if (items.length === 0) {
+      list.innerHTML = "<span style='color:var(--text-muted); font-size:0.8rem;'>" + group.empty + "</span>";
       return;
     }
-    words.forEach((word, i) => {
+    items.forEach((item, i) => {
       const chip = document.createElement("span");
       chip.className = "word-chip";
-      chip.innerHTML = word + ' <button type="button" onclick="removeWord(' + i + ')" title="Eliminar">✕</button>';
-      wordsList.appendChild(chip);
+      chip.innerHTML = item + ' <button type="button" onclick="removeChip('' + key + '',' + i + ')" title="Eliminar">✕</button>';
+      list.appendChild(chip);
     });
   }
 
-  function addWord() {
-    const val = wordInput.value.trim();
+  function addChip(key) {
+    const group = chipGroups[key];
+    const input = document.getElementById(group.input);
+    const val   = input.value.trim();
     if (!val) return;
-    const words = getWords();
-    if (!words.includes(val)) {
-      words.push(val);
-      setWords(words);
-      renderChips();
+    const items = getItems(group);
+    if (!items.includes(val)) {
+      items.push(val);
+      setItems(group, items);
+      renderGroup(key);
     }
-    wordInput.value = "";
-    wordInput.focus();
+    input.value = "";
+    input.focus();
   }
 
-  function removeWord(index) {
-    const words = getWords();
-    words.splice(index, 1);
-    setWords(words);
-    renderChips();
+  function removeChip(key, index) {
+    const group = chipGroups[key];
+    const items = getItems(group);
+    items.splice(index, 1);
+    setItems(group, items);
+    renderGroup(key);
   }
 
-  wordInput.addEventListener("keydown", function(e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addWord();
-    }
+  // Enter en cualquier input de chip agrega el valor
+  ["word-input", "type-input", "res-input"].forEach(function(id) {
+    const keyMap = { "word-input": "word", "type-input": "type", "res-input": "res" };
+    document.getElementById(id).addEventListener("keydown", function(e) {
+      if (e.key === "Enter") { e.preventDefault(); addChip(keyMap[id]); }
+    });
   });
 
-  renderChips();
+  // Render inicial de los tres grupos
+  Object.keys(chipGroups).forEach(renderGroup);
 </script>
 
 {% endblock %}

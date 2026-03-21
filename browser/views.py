@@ -23,7 +23,7 @@ from browser.services.subx import (
     download_subtitle,
     get_all_results,
 )
-from browser.services.config import load_config, save_config, get_preferred_user, get_media_root_options
+from browser.services.config import load_config, save_config, get_preferred_user, get_media_root_options, get_release_types, get_resolutions
 logger = logging.getLogger(__name__)
 
 
@@ -108,13 +108,13 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
 
     if show_all:
         # Mostrar todos los resultados sin filtros
-        results = get_all_results(folder.title)
+        results = get_all_results(folder.title, year=folder.year)
         t2 = time.time()
         criteria = "all"
         logger.info("Ver todos — video: '%s' — resultados: %d", video_filename, len(results))
     elif not keyword:
         # Búsqueda solo dentro del usuario preferido con cascada tipo+resolución
-        all_results = search_subtitles(folder.title)
+        all_results = search_subtitles(folder.title, year=folder.year)
         t2 = time.time()
         logger.info("TIMING search — get_folder_info: %.3fs — API call: %.3fs", t1 - t0, t2 - t1)
         if not all_results:
@@ -137,6 +137,7 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
             # Sin usuario configurado → cascada completa sin keyword
             results, criteria = search_with_fallback(
                 title=folder.title,
+                year=folder.year,
                 release_type=folder.release_type,
                 resolution=folder.resolution,
             )
@@ -144,6 +145,7 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
         # Con keyword → cascada completa
         results, criteria = search_with_fallback(
             title=folder.title,
+            year=folder.year,
             release_type=folder.release_type,
             resolution=folder.resolution,
             keyword=keyword,
@@ -342,6 +344,10 @@ def settings_view(request: HttpRequest) -> HttpResponse:
         preferred_user = request.POST.get("preferred_user", "").strip()
         words_raw = request.POST.get("preferred_words", "").strip()
         preferred_words = [w.strip() for w in words_raw.splitlines() if w.strip()]
+        types_raw = request.POST.get("release_types", "").strip()
+        release_types = [t.strip() for t in types_raw.splitlines() if t.strip()]
+        resolutions_raw = request.POST.get("resolutions", "").strip()
+        resolutions = [r.strip() for r in resolutions_raw.splitlines() if r.strip()]
 
         # Validar que la ruta exista
         if not media_root:
@@ -350,12 +356,12 @@ def settings_view(request: HttpRequest) -> HttpResponse:
             errors.append(f"La ruta '{media_root}' no existe o no es una carpeta.")
 
         if not errors:
-            ok = save_config(media_root, preferred_user, preferred_words)
+            ok = save_config(media_root, preferred_user, preferred_words, release_types, resolutions)
             if ok:
                 success = True
                 logger.info(
-                    "Configuración guardada — media_root: '%s', preferred_user: '%s', palabras: %d",
-                    media_root, preferred_user, len(preferred_words)
+                    "Configuración guardada — media_root: '%s', preferred_user: '%s', palabras: %d, tipos: %s, resoluciones: %s",
+                    media_root, preferred_user, len(preferred_words), release_types, resolutions,
                 )
             else:
                 errors.append("Error al guardar la configuración. Revisá los permisos del archivo.")
@@ -365,6 +371,8 @@ def settings_view(request: HttpRequest) -> HttpResponse:
             "media_root": media_root,
             "preferred_user": preferred_user,
             "preferred_words_text": "\n".join(preferred_words),
+            "release_types_text": "\n".join(release_types),
+            "resolutions_text": "\n".join(resolutions),
         }
     else:
         raw = load_config()
@@ -372,6 +380,8 @@ def settings_view(request: HttpRequest) -> HttpResponse:
             "media_root": raw["media_root"],
             "preferred_user": raw["preferred_user"],
             "preferred_words_text": "\n".join(raw.get("preferred_words", [])),
+            "release_types_text": "\n".join(raw.get("release_types", get_release_types())),
+            "resolutions_text": "\n".join(raw.get("resolutions", get_resolutions())),
         }
         logger.info("Vista de configuración cargada")
 

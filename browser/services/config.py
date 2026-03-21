@@ -25,6 +25,8 @@ def _settings_defaults() -> dict:
         "preferred_user": settings.SUBDIVX_PREFERRED_USER,
         "preferred_words": [],
         "media_root_options": [],   # lista de rutas predefinidas para el select
+        "release_types": ["BluRay", "WEBRip", "WEB-DL", "HDTV"],
+        "resolutions": ["720p", "1080p", "2160p"],
     }
 
 
@@ -53,24 +55,35 @@ def load_config() -> dict:
         return defaults
 
 
-def save_config(media_root: str, preferred_user: str, preferred_words: list[str]) -> bool:
+def save_config(
+    media_root: str,
+    preferred_user: str,
+    preferred_words: list[str],
+    release_types: list[str] | None = None,
+    resolutions: list[str] | None = None,
+) -> bool:
     """
     Persiste la configuración en config.json preservando media_root_options.
     Retorna True si se guardó correctamente.
     """
-    # Preservar media_root_options — no se editan desde la UI
+    defaults = _settings_defaults()
     existing = load_config()
     data = {
         "media_root": media_root.strip(),
         "preferred_user": preferred_user.strip(),
         "preferred_words": [w.strip() for w in preferred_words if w.strip()],
         "media_root_options": existing.get("media_root_options", []),
+        "release_types": release_types if release_types is not None else existing.get("release_types", defaults["release_types"]),
+        "resolutions": resolutions if resolutions is not None else existing.get("resolutions", defaults["resolutions"]),
     }
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        logger.info("config.json guardado — media_root: '%s', preferred_user: '%s', palabras: %s",
-                    data["media_root"], data["preferred_user"], data["preferred_words"])
+        logger.info(
+            "config.json guardado — media_root: '%s', preferred_user: '%s', palabras: %s, tipos: %s, resoluciones: %s",
+            data["media_root"], data["preferred_user"], data["preferred_words"],
+            data["release_types"], data["resolutions"],
+        )
         return True
     except OSError as e:
         logger.error("Error al guardar config.json: %s", e)
@@ -99,3 +112,15 @@ def get_preferred_words() -> list[str]:
     """Retorna las palabras del filtro inicial definidas en config.json."""
     config = load_config()
     return config.get("preferred_words", [])
+
+
+def get_release_types() -> list[str]:
+    """Retorna los tipos de release activos definidos en config.json."""
+    config = load_config()
+    return config.get("release_types", _settings_defaults()["release_types"])
+
+
+def get_resolutions() -> list[str]:
+    """Retorna las resoluciones activas definidas en config.json."""
+    config = load_config()
+    return config.get("resolutions", _settings_defaults()["resolutions"])
