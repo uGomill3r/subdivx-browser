@@ -184,24 +184,25 @@ def search_with_fallback(
         logger.warning("Sin resultados en SubX para: '%s'", title)
         return [], "none"
 
-    # Pasos 1-4: cascada dentro del usuario preferido
+    # Si hay keyword explícita del usuario, buscar directo en todos los resultados
+    if keyword:
+        by_keyword = filter_by_keyword(all_results, keyword)
+        if by_keyword:
+            logger.info("Búsqueda por keyword '%s' — resultados: %d", keyword, len(by_keyword))
+            return _to_subtitle_results(by_keyword, "keyword"), "keyword"
+
+    # Sin keyword: cascada dentro del usuario preferido
     if preferred_user:
         user_result = search_by_preferred_user(all_results, preferred_user, release_type, resolution, preferred_words)
         if user_result:
             return user_result
 
-    # 4. Keyword en descripción
-    if keyword:
-        by_keyword = filter_by_keyword(all_results, keyword)
-        if by_keyword:
-            return _to_subtitle_results(by_keyword, "keyword"), "keyword"
-
-    # 5. Tipo + resolución sin usuario
+    # Tipo + resolución sin usuario
     by_type_res = filter_by_resolution(filter_by_quality(all_results, release_type), resolution)
     if by_type_res:
         return _to_subtitle_results(by_type_res, "type+res"), "type+res"
 
-    # 6. Todos los resultados
+    # Todos los resultados
     logger.info("Sin filtros aplicables, retornando todos: %d", len(all_results))
     return _to_subtitle_results(all_results, "all"), "all"
 
