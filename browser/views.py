@@ -21,6 +21,8 @@ from browser.services.subx import (
     search_subtitles,
     search_by_preferred_user,
     search_with_fallback,
+    filter_by_quality,
+    filter_by_resolution,
     download_subtitle,
     get_all_results,
 )
@@ -113,37 +115,8 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
         t2 = time.time()
         criteria = "all"
         logger.info("Ver todos — video: '%s' — resultados: %d", video_filename, len(results))
-    elif not keyword:
-        # Búsqueda solo dentro del usuario preferido con cascada tipo+resolución
-        all_results = search_subtitles(folder.title, year=folder.year)
-        t2 = time.time()
-        logger.info("TIMING search — get_folder_info: %.3fs — API call: %.3fs", t1 - t0, t2 - t1)
-        if not all_results:
-            results, criteria = [], "none"
-        elif preferred_user:
-            from browser.services.config import get_preferred_words
-            user_result = search_by_preferred_user(
-                all_results,
-                preferred_user,
-                folder.release_type,
-                folder.resolution,
-                get_preferred_words(),
-            )
-            if user_result:
-                results, criteria = user_result
-            else:
-                # Sin resultados del usuario → pedir keyword
-                results, criteria = [], "needs_keyword"
-        else:
-            # Sin usuario configurado → cascada completa sin keyword
-            results, criteria = search_with_fallback(
-                title=folder.title,
-                year=folder.year,
-                release_type=folder.release_type,
-                resolution=folder.resolution,
-            )
-    else:
-        # Con keyword → cascada completa
+    elif keyword:
+        # Con keyword → busca en todos, fallback a tipo+resolución
         results, criteria = search_with_fallback(
             title=folder.title,
             year=folder.year,
@@ -151,6 +124,43 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
             resolution=folder.resolution,
             keyword=keyword,
         )
+        t2 = time.time()
+    else:
+        # Búsqueda automática inicial
+        from browser.services.config import get_preferred_words
+        all_results = search_subtitles(folder.title, year=folder.year)
+        t2 = time.time()
+        logger.info("TIMING search — get_folder_info: %.3fs — API call: %.3fs", t1 - t0, t2 - t1)
+
+        if not all_results:
+            results, criteria = [], "none"
+        else:
+            # Paso 1: usuario + tipo + resolución + palabras preferidas
+            user_result = None
+            if preferred_user:
+                user_result = search_by_preferred_user(
+                    all_results,
+                    preferred_user,
+                    folder.release_type,
+                    folder.resolution,
+                    get_preferred_words(),
+                )
+
+            if user_result:
+                results, criteria = user_result
+            else:
+                # Paso 2: tipo + resolución sin usuario (automático, sin pausa)
+                by_type_res = []
+                by_type_res = filter_by_resolution(
+                    filter_by_quality(all_results, folder.release_type),
+                    folder.resolution,
+                )
+                if by_type_res:
+                    criteria = "no_user+type+res" if preferred_user else "type+res"
+                    results = by_type_res
+                else:
+                    # Paso 3: sin resultados → pedir keyword
+                    results, criteria = [], "needs_keyword"
 
     logger.info(
         "Búsqueda completada — video: '%s' — criterio: %s — resultados: %d",
@@ -174,6 +184,7 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
             "all":           "todos los disponibles",
             "none":          "sin resultados",
             "needs_keyword": "sin resultados del usuario preferido",
+            "no_user+type+res": f"sin resultados del usuario preferido — {folder.release_type} + {folder.resolution}",
         },
     }
     return render(request, "browser/partials/results.html", context)
