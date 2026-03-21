@@ -1,6 +1,6 @@
 import os
 import logging
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import HttpRequest, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
@@ -358,11 +358,11 @@ def settings_view(request: HttpRequest) -> HttpResponse:
         if not errors:
             ok = save_config(media_root, preferred_user, preferred_words, release_types, resolutions)
             if ok:
-                success = True
                 logger.info(
                     "Configuración guardada — media_root: '%s', preferred_user: '%s', palabras: %d, tipos: %s, resoluciones: %s",
                     media_root, preferred_user, len(preferred_words), release_types, resolutions,
                 )
+                return redirect(f"{request.path}?saved=1")
             else:
                 errors.append("Error al guardar la configuración. Revisá los permisos del archivo.")
                 logger.error("Fallo al guardar config.json desde la vista de settings")
@@ -376,6 +376,7 @@ def settings_view(request: HttpRequest) -> HttpResponse:
         }
     else:
         raw = load_config()
+        success = request.GET.get("saved") == "1"
         config = {
             "media_root": raw["media_root"],
             "preferred_user": raw["preferred_user"],
@@ -383,7 +384,7 @@ def settings_view(request: HttpRequest) -> HttpResponse:
             "release_types_text": "\n".join(raw.get("release_types", get_release_types())),
             "resolutions_text": "\n".join(raw.get("resolutions", get_resolutions())),
         }
-        logger.info("Vista de configuración cargada")
+        logger.info("Vista de configuración cargada — saved=%s", success)
 
     return render(request, "browser/settings.html", {
         "config": config,
