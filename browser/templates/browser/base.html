@@ -6,8 +6,11 @@
   <!-- Favicon SVG inline -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230d0f14'/><text x='2' y='24' font-family='Inter,Arial,sans-serif' font-size='20' font-weight='800' fill='%23d4d8e8'>S</text><text x='15' y='21' font-family='Inter,Arial,sans-serif' font-size='16' font-weight='700' font-style='italic' fill='%23e8c840'>x</text></svg>">
   <!-- Apple touch icon para iOS/iPadOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <link rel="apple-touch-icon" href="{% static 'browser/apple-touch-icon.png' %}">
-  <link rel="manifest" href="/static/browser/manifest.webmanifest" />
+  <link rel="manifest" href="{% static 'browser/manifest.webmanifest' %}" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}SubDivX Browser{% endblock %}</title>
 
