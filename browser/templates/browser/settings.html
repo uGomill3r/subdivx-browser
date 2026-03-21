@@ -221,7 +221,7 @@
     items.forEach((item, i) => {
       const chip = document.createElement("span");
       chip.className = "word-chip";
-      chip.innerHTML = item + ' <button type="button" onclick="removeChip('' + key + '',' + i + ')" title="Eliminar">✕</button>';
+      chip.innerHTML = item + ' <button type="button" onclick="removeChip(\'' + key + '\',' + i + ')" title="Eliminar">✕</button>';
       list.appendChild(chip);
     });
   }
