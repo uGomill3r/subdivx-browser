@@ -2,6 +2,7 @@
   hx-get="{% url 'browser:search_subtitles' folder.folder_name %}"
   hx-target="#results-area"
   hx-indicator="#loading-indicator"
+  hx-on:htmx:before-request="setLoadingMsg('Buscando…')"
 >
   <input type="hidden" name="video" value="{{ video_filename }}" />
   <div class="d-flex gap-2 flex-wrap align-items-center">
@@ -9,9 +10,12 @@
       type="text"
       name="keyword"
       class="input-dark"
-      placeholder="Ej: latino, castellano, forzado…"
+      placeholder="Ej: 1080p YIFY BluRay"
       style="max-width:280px;"
     />
     <button type="submit" class="btn-accent">Buscar</button>
+  </div>
+  <div style="color:var(--text-muted); font-size:0.78rem; margin-top:0.4rem;">
+    Varias palabras separadas por espacio
   </div>
 </form>

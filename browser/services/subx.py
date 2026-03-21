@@ -101,13 +101,18 @@ def filter_by_resolution(results: list[dict], resolution: str) -> list[dict]:
 
 
 def filter_by_keyword(results: list[dict], keyword: str) -> list[dict]:
-    """Filtra resultados cuya descripción contiene la keyword."""
-    kw = keyword.lower()
+    """
+    Filtra resultados cuya descripción contiene todas las palabras de la keyword (AND).
+    Las palabras se separan por espacio. Ej: '1080p YIFY' requiere ambas en la descripción.
+    """
+    words = [w for w in keyword.lower().split() if w]
+    if not words:
+        return results
     filtered = [
         r for r in results
-        if kw in (r.get("description") or "").lower()
+        if all(w in (r.get("description") or "").lower() for w in words)
     ]
-    logger.info("Filtro por keyword '%s' — encontrados: %d", keyword, len(filtered))
+    logger.info("Filtro por keyword %s (AND) — encontrados: %d", words, len(filtered))
     return filtered
 
 
