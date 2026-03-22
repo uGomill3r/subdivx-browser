@@ -8,6 +8,8 @@ App Django 5.2 para buscar y descargar subtítulos desde SubDivX (vía SubX API)
 - Python 3.11+
 - nginx
 - `unrar` (para soporte de archivos RAR): `sudo apt install unrar -y`
+- `mkcert` — certificados HTTPS para red local
+- Pi-hole — DNS local (para dominio `pibox.lan`)
 
 ## Instalación
 
@@ -79,7 +81,42 @@ sudo systemctl enable subdivx-browser
 sudo systemctl start subdivx-browser
 ```
 
-### 6. nginx como proxy
+### 6. Certificado HTTPS con mkcert
+
+```bash
+# Instalar mkcert
+sudo apt install libnss3-tools -y
+curl -Lo mkcert https://github.com/FiloSottile/mkcert/releases/latest/download/mkcert-v1.4.4-linux-arm
+chmod +x mkcert
+sudo mv mkcert /usr/local/bin/
+
+# Crear CA local y certificado
+mkcert -install
+mkcert pibox.lan
+
+# Mover certificados
+sudo mkdir -p /etc/nginx/certs
+sudo cp ~/pibox.lan.pem /etc/nginx/certs/
+sudo cp ~/pibox.lan-key.pem /etc/nginx/certs/
+sudo chmod 600 /etc/nginx/certs/*
+```
+
+**Instalar la CA en iOS:**
+```bash
+cp $(mkcert -CAROOT)/rootCA.pem ~/subdivx-browser/staticfiles/rootCA.pem
+```
+Desde el iPhone en Safari: `http://192.168.11.120:8002/static/rootCA.pem` → instalar perfil → Ajustes → General → Información → Configuración de confianza de certificados → activar la CA de mkcert.
+
+**Instalar la CA en macOS:**
+```bash
+scp pi@192.168.11.120:/home/pi/.local/share/mkcert/rootCA.pem ~/Desktop/
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/Desktop/rootCA.pem
+```
+
+**Dominio local en Pi-hole:**
+Local DNS → DNS Records → agregar `pibox.lan` → `192.168.11.120`
+
+### 7. nginx como proxy
 
 ```bash
 sudo apt install nginx -y
@@ -89,13 +126,34 @@ sudo nano /etc/nginx/sites-available/subdivx-browser
 
 ```nginx
 server {
-    listen 8002;
-    server_name _;
+    listen 8002 ssl;
+    server_name pibox.lan;
 
-    location /static/ {
-        alias /home/pi/subdivx-browser/staticfiles/;
+    ssl_certificate     /etc/nginx/certs/pibox.lan.pem;
+    ssl_certificate_key /etc/nginx/certs/pibox.lan-key.pem;
+
+    # Íconos servidos desde la raíz (requerido por Safari iOS)
+    location = /apple-touch-icon.png {
+        alias /home/pi/subdivx-browser/staticfiles/browser/apple-touch-icon.png;
     }
 
+    location = /apple-touch-icon-precomposed.png {
+        alias /home/pi/subdivx-browser/staticfiles/browser/apple-touch-icon.png;
+    }
+
+    location = /favicon.ico {
+        alias /home/pi/subdivx-browser/staticfiles/browser/favicon.ico;
+    }
+
+    # Archivos estáticos
+    location /static/ {
+        alias /home/pi/subdivx-browser/staticfiles/;
+        types {
+            application/manifest+json  webmanifest;
+        }
+    }
+
+    # App Django via Gunicorn
     location / {
         proxy_pass http://127.0.0.1:8001;
         proxy_set_header Host $host;
@@ -116,7 +174,7 @@ sudo systemctl start nginx
 Accedé desde cualquier dispositivo en la red local:
 
 ```
-http://<ip-raspberry>:8002
+https://pibox.lan:8002
 ```
 
 ## Actualizar
