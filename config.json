@@ -1,0 +1,70 @@
+{
+  "media_root": "/mnt/HDD/Descargas",
+  "preferred_user": "TaMaBin",
+  "preferred_words": [
+    "LATINO"
+  ],
+  "media_root_options": [
+    "/mnt/HDD/Descargas",
+    "/mnt/HDD/Library/Movies/"
+  ],
+  "release_types": [
+    {
+      "name": "BluRay",
+      "keywords": [
+        "bluray",
+        "blu-ray",
+        "bdrip",
+        "brip"
+      ]
+    },
+    {
+      "name": "WEBRip",
+      "keywords": [
+        "webrip",
+        "web-rip"
+      ]
+    },
+    {
+      "name": "WEB-DL",
+      "keywords": [
+        "webdl",
+        "web-dl",
+        "web dl"
+      ]
+    },
+    {
+      "name": "HDTV",
+      "keywords": [
+        "hdtv"
+      ]
+    }
+  ],
+  "resolutions": [
+    {
+      "name": "720p",
+      "keywords": [
+        "720p",
+        "720",
+        "hd"
+      ]
+    },
+    {
+      "name": "1080p",
+      "keywords": [
+        "1080p",
+        "1080",
+        "fhd"
+      ]
+    },
+    {
+      "name": "2160p",
+      "keywords": [
+        "2160p",
+        "2160",
+        "4k",
+        "uhd"
+      ]
+    }
+  ]
+}
