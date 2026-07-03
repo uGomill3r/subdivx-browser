@@ -230,7 +230,7 @@ Los archivos descargados pueden estar comprimidos (ZIP o RAR):
 
 Proceso al guardar:
 1. Si existe `video.srt` → renombrar a `video.en.srt`
-2. Limpiar carpeta: eliminar todo excepto `.mp4`, `.srt` y carpetas `subtitle/subtitles`
+2. Limpiar carpeta: eliminar todo excepto video (`.mp4`/`.mkv`), `.srt` y carpetas `subtitle/subtitles`
 3. Guardar como `video.es.srt`
 
 ## Configuración desde la interfaz
@@ -244,6 +244,10 @@ Accesible desde el ícono ⚙ en la barra superior (`/settings/`). Permite cambi
 - **Resoluciones**: igual que tipos, con keywords editables por resolución
 
 Los cambios se guardan en `config.json` (no incluido en el repo) y tienen prioridad sobre `.env`.
+
+### Tema claro / oscuro
+
+Botón ☀/☾ en la barra superior, junto al ícono de configuración. Alterna entre tema oscuro (por defecto) y tema claro; la preferencia se guarda en el navegador (`localStorage`), no requiere reiniciar el servicio.
 
 ### Formato de config.json
 
