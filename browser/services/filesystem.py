@@ -88,7 +88,7 @@ def parse_video_filename(filename: str) -> dict:
 
 def get_videos_in_folder(folder_path: str) -> list[str]:
     """
-    Retorna lista de archivos de video (.mp4) dentro de la carpeta.
+    Retorna lista de archivos de video (.mp4, .mkv) dentro de la carpeta.
     """
     try:
         entries = os.listdir(folder_path)
@@ -161,7 +161,7 @@ def rename_plain_srt_to_english(folder_path: str, video_filename: str) -> str | 
 def clean_folder(folder_path: str, video_filename: str) -> list[str]:
     """
     Limpia la carpeta conservando solo:
-      - El archivo de video (.mp4)
+      - El archivo de video (.mp4, .mkv)
       - Archivos .srt (cualquier variante)
       - Carpetas llamadas 'subtitle' o 'subtitles'
 

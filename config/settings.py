@@ -57,7 +57,7 @@ SUBDIVX_PREFERRED_USER = os.getenv("SUBDIVX_PREFERRED_USER", "")
 MEDIA_ROOT_PATH = os.getenv("MEDIA_ROOT", "/media/videos")
 
 
-VIDEO_EXTENSIONS = [".mp4"]
+VIDEO_EXTENSIONS = [".mp4", ".mkv"]
 
 # Carpetas a excluir del escaneo (separadas por coma en .env)
 _excluded = os.getenv("MEDIA_EXCLUDED_FOLDERS", "")

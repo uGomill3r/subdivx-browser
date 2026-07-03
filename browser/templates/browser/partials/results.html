@@ -42,7 +42,7 @@
   <!-- Aviso si hay subtítulo .srt sin .es (será renombrado a .en.srt al descargar) -->
   {% if sub_status.has_plain_srt %}
   <div style="color:var(--accent); font-size:0.82rem; margin-bottom:0.75rem;">
-    ⚠ Se encontró <strong>{{ video_filename|cut:".mp4" }}.srt</strong> —
+    ⚠ Se encontró <strong>{{ video_filename|splitext }}.srt</strong> —
     será renombrado a <strong>.en.srt</strong> al descargar el español.
   </div>
   {% endif %}
