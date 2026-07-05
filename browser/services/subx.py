@@ -222,6 +222,101 @@ def _to_subtitle_results(raw: list[dict], matched_by: str) -> list[SubtitleResul
     ]
 
 
+def test_api_connection() -> dict:
+    """
+    Realiza una consulta liviana a la API de SubX para verificar que:
+      1. La API key está configurada.
+      2. El host responde.
+      3. La autenticación es válida.
+
+    Retorna un dict con el resultado, pensado para mostrarse directo en la UI:
+      {
+        "ok": bool,
+        "status_code": int | None,
+        "message": str,
+        "detail": str,
+        "elapsed_ms": int | None,
+      }
+    """
+    import time
+
+    if not settings.SUBX_API_KEY:
+        logger.warning("Test de conexión a SubX API: SUBX_API_KEY no está configurada")
+        return {
+            "ok": False,
+            "status_code": None,
+            "message": "Falta configurar SUBX_API_KEY",
+            "detail": "La variable de entorno SUBX_API_KEY está vacía. Sin esto, la API "
+                      "rechaza cualquier búsqueda (401) y la app queda sin resultados.",
+            "elapsed_ms": None,
+        }
+
+    url = f"{SUBX_BASE_URL}/subtitles/search"
+    params = {"title": "test", "limit": 1}
+
+    t0 = time.time()
+    try:
+        response = requests.get(url, headers=_get_headers(), params=params, timeout=10)
+        elapsed_ms = int((time.time() - t0) * 1000)
+
+        if response.status_code == 200:
+            logger.info("Test de conexión a SubX API: OK (%d ms)", elapsed_ms)
+            return {
+                "ok": True,
+                "status_code": 200,
+                "message": "Conexión exitosa",
+                "detail": "La API respondió correctamente a una búsqueda de prueba.",
+                "elapsed_ms": elapsed_ms,
+            }
+
+        if response.status_code in (401, 403):
+            logger.error(
+                "Test de conexión a SubX API: auth rechazada (%d) — %s",
+                response.status_code, response.text[:300],
+            )
+            return {
+                "ok": False,
+                "status_code": response.status_code,
+                "message": "API key inválida o rechazada",
+                "detail": f"La API respondió {response.status_code}. Revisá que SUBX_API_KEY "
+                          f"sea correcta y esté vigente.",
+                "elapsed_ms": elapsed_ms,
+            }
+
+        logger.error(
+            "Test de conexión a SubX API: status inesperado %d — %s",
+            response.status_code, response.text[:300],
+        )
+        return {
+            "ok": False,
+            "status_code": response.status_code,
+            "message": f"La API respondió con un error ({response.status_code})",
+            "detail": response.text[:300],
+            "elapsed_ms": elapsed_ms,
+        }
+
+    except requests.exceptions.Timeout:
+        elapsed_ms = int((time.time() - t0) * 1000)
+        logger.error("Test de conexión a SubX API: timeout tras %d ms", elapsed_ms)
+        return {
+            "ok": False,
+            "status_code": None,
+            "message": "Timeout — la API no respondió a tiempo",
+            "detail": "El servidor no contestó dentro de 10 segundos.",
+            "elapsed_ms": elapsed_ms,
+        }
+    except requests.exceptions.RequestException as e:
+        elapsed_ms = int((time.time() - t0) * 1000)
+        logger.error("Test de conexión a SubX API: error de red — %s", e)
+        return {
+            "ok": False,
+            "status_code": None,
+            "message": "No se pudo conectar a la API",
+            "detail": str(e),
+            "elapsed_ms": elapsed_ms,
+        }
+
+
 def download_subtitle(subtitle_id: str) -> bytes | None:
     """
     Descarga el archivo .srt de un subtítulo por su ID.

@@ -25,6 +25,7 @@ from browser.services.subx import (
     filter_by_resolution,
     download_subtitle,
     get_all_results,
+    test_api_connection,
 )
 from browser.services.config import load_config, save_config, get_preferred_user, get_media_root_options, get_release_types, get_resolutions
 logger = logging.getLogger(__name__)
@@ -410,3 +411,73 @@ def settings_view(request: HttpRequest) -> HttpResponse:
         "errors": errors,
         "media_root_options": get_media_root_options(),
     })
+
+
+# Niveles válidos para el filtro de la vista de logs, en orden de severidad.
+_LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+
+
+def logs_view(request: HttpRequest) -> HttpResponse:
+    """
+    Muestra el contenido del archivo de log de la app.
+    Parámetros GET:
+      - level: nivel mínimo a mostrar (default: WARNING, es decir warnings + errores)
+      - lines: cantidad máxima de líneas a mostrar desde el final (default: 500)
+    """
+    level = request.GET.get("level", "WARNING").upper()
+    if level not in _LOG_LEVELS and level != "ALL":
+        level = "WARNING"
+
+    try:
+        max_lines = int(request.GET.get("lines", 500))
+    except ValueError:
+        max_lines = 500
+    max_lines = max(50, min(max_lines, 5000))
+
+    log_path = settings.LOG_FILE
+    all_lines: list[str] = []
+    read_error = None
+
+    if os.path.exists(log_path):
+        try:
+            with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+                all_lines = f.readlines()
+        except OSError as e:
+            read_error = f"No se pudo leer el archivo de log: {e}"
+            logger.error("Error al leer %s: %s", log_path, e)
+    else:
+        read_error = "Todavía no existe el archivo de log (no se registró ninguna actividad)."
+
+    # Filtrar por nivel mínimo. El formato de línea es "LEVEL fecha modulo — mensaje".
+    if level != "ALL":
+        min_index = _LOG_LEVELS.index(level)
+        allowed = set(_LOG_LEVELS[min_index:])
+        filtered = [ln for ln in all_lines if ln.split(" ", 1)[0] in allowed]
+    else:
+        filtered = all_lines
+
+    total_matching = len(filtered)
+    tail = filtered[-max_lines:]
+    tail.reverse()  # más reciente primero
+
+    logger.info("Vista de logs cargada — nivel: %s — líneas mostradas: %d/%d", level, len(tail), total_matching)
+
+    return render(request, "browser/logs.html", {
+        "log_lines": tail,
+        "level": level,
+        "max_lines": max_lines,
+        "total_matching": total_matching,
+        "read_error": read_error,
+        "log_path": str(log_path),
+        "levels": _LOG_LEVELS,
+    })
+
+
+@require_http_methods(["POST"])
+def test_api_connection_view(request: HttpRequest) -> HttpResponse:
+    """
+    Ejecuta una búsqueda de prueba contra la API de SubX y devuelve
+    un parcial HTML con el resultado (pensado para HTMX en la vista de settings).
+    """
+    result = test_api_connection()
+    return render(request, "browser/partials/api_test_result.html", {"result": result})

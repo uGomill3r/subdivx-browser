@@ -1,0 +1,101 @@
+{% extends "browser/base.html" %}
+
+{% block title %}Logs — SubDivX Browser{% endblock %}
+
+{% block content %}
+
+<div class="breadcrumb-dark">
+  <a href="{% url 'browser:index' %}">Biblioteca</a>
+  &nbsp;/&nbsp; Logs
+</div>
+
+<div class="mb-4" style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+  <div>
+    <h1 style="font-family:'Inter',sans-serif; font-size:1.35rem; font-weight:800; line-height:1.3; margin:0;">
+      Logs
+    </h1>
+    <div style="color:var(--text-muted); font-size:0.8rem; margin-top:0.3rem;">
+      Archivo: <code style="color:var(--accent);">{{ log_path }}</code>
+    </div>
+  </div>
+  <a href="{% url 'browser:settings' %}" class="btn-outline" style="font-size:0.8rem;">⚙ Configuración</a>
+</div>
+
+<hr style="border-color:var(--border); margin: 1.25rem 0;" />
+
+<form method="get" style="display:flex; gap:0.75rem; align-items:end; flex-wrap:wrap; margin-bottom:1rem;">
+  <div>
+    <label style="display:block; font-size:0.78rem; color:var(--text-muted); margin-bottom:0.3rem;">
+      Nivel mínimo
+    </label>
+    <select name="level" class="input-dark" onchange="this.form.submit()">
+      <option value="ALL" {% if level == "ALL" %}selected{% endif %}>Todos</option>
+      {% for lvl in levels %}
+        <option value="{{ lvl }}" {% if level == lvl %}selected{% endif %}>{{ lvl }} y superior</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label style="display:block; font-size:0.78rem; color:var(--text-muted); margin-bottom:0.3rem;">
+      Máx. líneas
+    </label>
+    <select name="lines" class="input-dark" onchange="this.form.submit()">
+      <option value="100" {% if max_lines == 100 %}selected{% endif %}>100</option>
+      <option value="500" {% if max_lines == 500 %}selected{% endif %}>500</option>
+      <option value="1000" {% if max_lines == 1000 %}selected{% endif %}>1000</option>
+      <option value="5000" {% if max_lines == 5000 %}selected{% endif %}>5000</option>
+    </select>
+  </div>
+
+  <button type="submit" class="btn-outline">↻ Actualizar</button>
+</form>
+
+{% if read_error %}
+  <div style="
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: var(--radius);
+    padding: 0.65rem 1rem;
+    font-size: 0.85rem;
+    margin-bottom: 1.25rem;
+  ">
+    ✕ {{ read_error }}
+  </div>
+{% else %}
+  <div style="color:var(--text-muted); font-size:0.78rem; margin-bottom:0.6rem;">
+    Mostrando {{ log_lines|length }} de {{ total_matching }} líneas coincidentes (más reciente primero).
+  </div>
+{% endif %}
+
+<div style="
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  max-height: 65vh;
+  overflow-y: auto;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+">
+  {% if log_lines %}
+    {% for line in log_lines %}
+      <div style="
+        padding: 0.3rem 0.9rem;
+        border-bottom: 1px solid var(--border);
+        white-space: pre-wrap;
+        word-break: break-word;
+        {% if line|slice:':5' == 'ERROR' or line|slice:':8' == 'CRITICAL' %}color: var(--danger);
+        {% elif line|slice:':7' == 'WARNING' %}color: #d9a441;
+        {% else %}color: var(--text-muted);{% endif %}
+      ">{{ line }}</div>
+    {% endfor %}
+  {% else %}
+    <div style="padding: 1.5rem; color:var(--text-muted); text-align:center;">
+      No hay líneas para mostrar con el filtro actual.
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

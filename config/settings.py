@@ -63,6 +63,12 @@ VIDEO_EXTENSIONS = [".mp4", ".mkv"]
 _excluded = os.getenv("MEDIA_EXCLUDED_FOLDERS", "")
 MEDIA_EXCLUDED_FOLDERS = {f.strip() for f in _excluded.split(",") if f.strip()}
 
+# Carpeta y archivo donde se persisten los logs de la app.
+# Guardarlos en disco es lo que permite mostrarlos luego en la vista /logs/.
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = LOG_DIR / "subdivx-browser.log"
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -77,9 +83,17 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(LOG_FILE),
+            "maxBytes": 2 * 1024 * 1024,  # 2 MB por archivo
+            "backupCount": 3,
+            "formatter": "verbose",
+            "encoding": "utf-8",
+        },
     },
     "root": {
-        "handlers": ["console"],
+        "handlers": ["console", "file"],
         "level": "DEBUG",
     },
 }

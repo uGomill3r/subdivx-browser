@@ -11,4 +11,6 @@ urlpatterns = [
     path("folder/<str:folder_name>/download/", views.download_and_save, name="download_and_save"),
     path("folder/<str:folder_name>/select/", views.select_and_save, name="select_and_save"),
     path("settings/", views.settings_view, name="settings"),
+    path("settings/test-api/", views.test_api_connection_view, name="test_api_connection"),
+    path("logs/", views.logs_view, name="logs"),
 ]

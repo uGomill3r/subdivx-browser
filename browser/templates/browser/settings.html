@@ -186,6 +186,37 @@
 
 </form>
 
+<hr style="border-color:var(--border); margin: 1.75rem 0;" />
+
+<!-- Test de conexión con la API -->
+<div style="max-width: 600px; margin-bottom: 1.5rem;">
+  <div class="section-header">Conexión con la API</div>
+  <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">
+    Ejecuta una búsqueda de prueba contra la API de subtítulos para verificar que la
+    API key y la conectividad están OK.
+  </label>
+  <button
+    type="button"
+    class="btn-outline"
+    hx-post="{% url 'browser:test_api_connection' %}"
+    hx-target="#api-test-result"
+    hx-swap="innerHTML"
+    hx-indicator="#api-test-spinner"
+  >
+    Probar conexión
+  </button>
+  <span id="api-test-spinner" class="htmx-indicator" style="margin-left:0.6rem; font-size:0.8rem; color:var(--text-muted);">
+    Probando…
+  </span>
+  <div id="api-test-result" style="margin-top:0.85rem;"></div>
+</div>
+
+<div style="max-width: 600px;">
+  <a href="{% url 'browser:logs' %}" class="btn-outline" style="font-size:0.82rem;">
+    📋 Ver logs de errores
+  </a>
+</div>
+
 <style>
   .word-chip {
     display: inline-flex;
