@@ -290,3 +290,125 @@ Todos los íconos de navegación (barra superior: logs, configuración, tema; y 
 `media_root_options` se edita manualmente en el archivo. Si está vacío o ausente, se muestra un input de texto libre.
 
 `release_types` y `resolutions` son editables desde la UI. Si no están en `config.json`, se usan los valores por defecto definidos en `config.py`.
+
+## Proveedor alternativo: subx-bridge
+
+Además de SubX API, la app soporta [subx-bridge](https://github.com/fr0gb1t/subx-bridge) como proveedor
+alternativo: un bridge HTTP autohospedado que consulta Subdivx de forma directa (sin depender del uptime
+de la SubX API pública). El proveedor activo se elige en **Configuración**, sin reiniciar el servicio.
+
+### 1. Desplegar subx-bridge con Docker en la Pi
+
+```bash
+git clone https://github.com/fr0gb1t/subx-bridge.git
+cd subx-bridge
+```
+
+Conseguí las cookies de sesión de Subdivx desde un navegador logueado (DevTools → pestaña Network →
+copiar el header `Cookie` del request principal a subdivx.com, y el `User-Agent` de ese mismo navegador).
+
+Editá el `.env` (copiado de `.env.sample`):
+
+```
+SUBX_API_KEYS=una-clave-secreta-propia
+SUBDIVX_CF_CLEARANCE=valor_de_cf_clearance
+SUBDIVX_SDX=valor_de_sdx
+SUBDIVX_USER_AGENT=el mismo user-agent del navegador usado para las cookies
+LOG_LEVEL=INFO
+```
+
+**Importante**: el `docker-compose.yml` del repo trae los valores hardcodeados en vez de referenciar
+el `.env`. Hay que editarlo para que use variables:
+
+```yaml
+services:
+  subx-bridge:
+    build: .
+    container_name: subx-bridge
+    environment:
+      SUBX_API_KEYS: "${SUBX_API_KEYS}"
+      SUBDIVX_CF_CLEARANCE: "${SUBDIVX_CF_CLEARANCE}"
+      SUBDIVX_SDX: "${SUBDIVX_SDX}"
+      SUBDIVX_USER_AGENT: "${SUBDIVX_USER_AGENT}"
+      LOG_LEVEL: "${LOG_LEVEL}"
+    ports:
+      - "8787:8787"
+    restart: unless-stopped
+```
+
+```bash
+docker compose up -d --build
+curl http://127.0.0.1:8787/health
+```
+
+### 2. Exponer con nginx + dominio `.lan`
+
+Pi-hole ya ocupa los puertos 80 y 443 (`pihole-FTL`), así que no se puede usar ese esquema para el bridge;
+se eligió un puerto propio (8443), igual que `pibox.lan` usa 8002.
+
+```bash
+mkcert subxbridge.lan   # sin sudo — con el mismo usuario que corre nginx/verificará el cert
+```
+
+```nginx
+server {
+    listen 8443 ssl;
+    server_name subxbridge.lan;
+
+    ssl_certificate     /etc/nginx/certs/subxbridge.lan.pem;
+    ssl_certificate_key /etc/nginx/certs/subxbridge.lan-key.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8787;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/subxbridge.lan /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl restart nginx
+```
+
+Agregá `subxbridge.lan` en Pi-hole (Local DNS → DNS Records) apuntando a la IP de la Pi.
+
+**Ojo con mkcert y `sudo`**: si generás el certificado con `sudo mkcert ...`, queda firmado por la CA de
+`root`, no la de tu usuario (`mkcert -CAROOT` difiere entre `root` y `pi`). Generá el cert como el mismo
+usuario cuya CA ya está instalada y de la que vas a verificar, o vas a tener un mismatch de `issuer`.
+
+### 3. Que Python confíe en el certificado
+
+`requests` (usado por subdivx-browser) no usa el CA bundle del sistema por defecto, sino el de `certifi`.
+Agregá al `.env` de subdivx-browser:
+
+```
+REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+```
+
+y asegurate de que la CA de mkcert esté instalada en ese bundle del sistema:
+
+```bash
+sudo cp "$(mkcert -CAROOT)/rootCA.pem" /usr/local/share/ca-certificates/mkcert-rootCA.crt
+sudo update-ca-certificates
+```
+
+### 4. Configurar subdivx-browser
+
+En su `.env`:
+
+```
+SUBX_BRIDGE_URL=https://subxbridge.lan:8443
+SUBX_BRIDGE_API_KEY=una-clave-secreta-propia   # debe coincidir con SUBX_API_KEYS del bridge
+```
+
+Reiniciá el servicio, entrá a **Configuración**, elegí "subx-bridge" como proveedor y verificá con el
+botón de test de conexión (hace `/health` + una búsqueda de prueba).
+
+### Mantenimiento
+
+La cookie `SUBDIVX_CF_CLEARANCE` expira periódicamente (Cloudflare). Cuando el bridge empiece a fallar
+o devolver resultados vacíos, repetí el paso 1 para renovarla desde un navegador y reiniciá el contenedor
+(`docker compose up -d --build`).
