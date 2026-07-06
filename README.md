@@ -260,7 +260,7 @@ Botón con ícono de sol/luna (Bootstrap Icons) en la barra superior, agrupado j
 
 ### Iconografía
 
-Todos los íconos de la barra superior (logs, configuración y alternancia de tema) usan [Bootstrap Icons](https://icons.getbootstrap.com/) vía CDN, agrupados en un mismo bloque a la derecha de la barra para mantener consistencia visual.
+Todos los íconos de navegación (barra superior: logs, configuración, tema; y accesos directos en `logs.html`/`settings.html`: volver a configuración, actualizar, ver logs, mensajes de error) usan [Bootstrap Icons](https://icons.getbootstrap.com/) vía CDN, reemplazando los emojis previos para una apariencia más consistente y profesional.
 
 ### Formato de config.json
 

@@ -46,7 +46,7 @@
     margin-bottom: 1.25rem;
   ">
     {% for error in errors %}
-      <div>✕ {{ error }}</div>
+      <div><i class="bi bi-x-circle"></i> {{ error }}</div>
     {% endfor %}
   </div>
 {% endif %}
@@ -248,7 +248,7 @@
 
 <div style="max-width: 600px;">
   <a href="{% url 'browser:logs' %}" class="btn-outline" style="font-size:0.82rem;">
-    📋 Ver logs de errores
+    <i class="bi bi-journal-text"></i> Ver logs de errores
   </a>
 </div>
 

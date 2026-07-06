@@ -18,7 +18,7 @@
       Archivo: <code style="color:var(--accent);">{{ log_path }}</code>
     </div>
   </div>
-  <a href="{% url 'browser:settings' %}" class="btn-outline" style="font-size:0.8rem;">⚙ Configuración</a>
+  <a href="{% url 'browser:settings' %}" class="btn-outline" style="font-size:0.8rem;"><i class="bi bi-gear-fill"></i> Configuración</a>
 </div>
 
 <hr style="border-color:var(--border); margin: 1.25rem 0;" />
@@ -48,7 +48,7 @@
     </select>
   </div>
 
-  <button type="submit" class="btn-outline">↻ Actualizar</button>
+  <button type="submit" class="btn-outline"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
 </form>
 
 {% if read_error %}
@@ -61,7 +61,7 @@
     font-size: 0.85rem;
     margin-bottom: 1.25rem;
   ">
-    ✕ {{ read_error }}
+    <i class="bi bi-x-circle"></i> {{ read_error }}
   </div>
 {% else %}
   <div style="color:var(--text-muted); font-size:0.78rem; margin-bottom:0.6rem;">
