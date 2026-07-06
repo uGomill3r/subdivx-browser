@@ -244,7 +244,7 @@ Proceso al guardar:
 
 ## Configuración desde la interfaz
 
-Accesible desde el ícono ⚙ en la barra superior (`/settings/`). Permite cambiar sin reiniciar el servicio:
+Accesible desde el ícono de engranaje (Bootstrap Icons) en la barra superior (`/settings/`). Permite cambiar sin reiniciar el servicio:
 
 - **Ruta de la biblioteca**: seleccionable desde lista predefinida en `config.json`, o input libre
 - **Usuario preferido**: usuario de SubDivX priorizado en la búsqueda inicial
@@ -256,7 +256,11 @@ Los cambios se guardan en `config.json` (no incluido en el repo) y tienen priori
 
 ### Tema claro / oscuro
 
-Botón ☀/☾ en la barra superior, junto al ícono de configuración. Alterna entre tema oscuro (por defecto) y tema claro; la preferencia se guarda en el navegador (`localStorage`), no requiere reiniciar el servicio.
+Botón con ícono de sol/luna (Bootstrap Icons) en la barra superior, agrupado junto a logs y configuración. Alterna entre tema oscuro (por defecto) y tema claro; la preferencia se guarda en el navegador (`localStorage`), no requiere reiniciar el servicio.
+
+### Iconografía
+
+Todos los íconos de la barra superior (logs, configuración y alternancia de tema) usan [Bootstrap Icons](https://icons.getbootstrap.com/) vía CDN, agrupados en un mismo bloque a la derecha de la barra para mantener consistencia visual.
 
 ### Formato de config.json
 

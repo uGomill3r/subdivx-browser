@@ -34,6 +34,9 @@
   <!-- Bootstrap 5 -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" />
 
+  <!-- Bootstrap Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
   <!-- HTMX -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.2/htmx.min.js" defer></script>
 
@@ -303,20 +306,28 @@
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+    /* Grupo de iconos del topbar (logs, configuración, tema) */
+    .topbar-icons {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+    }
+
     /* Ícono de configuración en topbar */
     .topbar-settings {
-      margin-left: auto;
       color: var(--text-muted);
       font-size: 1.1rem;
       text-decoration: none;
       line-height: 1;
+      display: inline-flex;
+      align-items: center;
       transition: color 0.15s;
     }
     .topbar-settings:hover { color: var(--accent); }
 
     /* Botón de alternancia de tema */
     .topbar-theme-toggle {
-      margin-left: 0.75rem;
       background: transparent;
       border: none;
       color: var(--text-muted);
@@ -324,6 +335,8 @@
       line-height: 1;
       cursor: pointer;
       padding: 0;
+      display: inline-flex;
+      align-items: center;
       transition: color 0.15s;
     }
     .topbar-theme-toggle:hover { color: var(--accent); }
@@ -335,15 +348,21 @@
     <a href="{% url 'browser:index' %}" class="topbar-brand">
       SUBDIVX <span>/ browser</span>
     </a>
-    <a href="{% url 'browser:logs' %}" class="topbar-settings" title="Logs">📋</a>
-    <a href="{% url 'browser:settings' %}" class="topbar-settings" title="Configuración">⚙</a>
-    <button
-      type="button"
-      id="theme-toggle"
-      class="topbar-theme-toggle"
-      onclick="toggleSdxTheme()"
-      title="Cambiar tema"
-    >☀</button>
+    <div class="topbar-icons">
+      <a href="{% url 'browser:logs' %}" class="topbar-settings" title="Logs">
+        <i class="bi bi-journal-text"></i>
+      </a>
+      <a href="{% url 'browser:settings' %}" class="topbar-settings" title="Configuración">
+        <i class="bi bi-gear-fill"></i>
+      </a>
+      <button
+        type="button"
+        id="theme-toggle"
+        class="topbar-theme-toggle"
+        onclick="toggleSdxTheme()"
+        title="Cambiar tema"
+      ><i class="bi bi-sun-fill"></i></button>
+    </div>
   </nav>
 
   <main class="main-content">
@@ -354,8 +373,11 @@
     function updateSdxThemeIcon() {
       const btn = document.getElementById('theme-toggle');
       if (!btn) return;
+      const icon = btn.querySelector('i');
       const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-      btn.textContent = isLight ? '☾' : '☀';
+      if (icon) {
+        icon.className = isLight ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
+      }
       btn.title = isLight ? 'Cambiar a tema oscuro' : 'Cambiar a tema claro';
     }
 
