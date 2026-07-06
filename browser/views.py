@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from django.shortcuts import render, redirect
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 
@@ -37,6 +37,7 @@ from browser.services.config import (
     VALID_API_PROVIDERS,
     API_PROVIDER_SUBX,
 )
+from browser.services.cf_cookie_capture import capture_state
 logger = logging.getLogger(__name__)
 
 
@@ -507,3 +508,53 @@ def test_api_connection_view(request: HttpRequest) -> HttpResponse:
     """
     result = test_api_connection()
     return render(request, "browser/partials/api_test_result.html", {"result": result})
+
+
+# ── Captura manual de cookie de Cloudflare (screenshot-polling) ────────────
+#
+# subx-bridge necesita cf_clearance/sdx vigentes para scrapear Subdivx, pero
+# el challenge de Cloudflare (Turnstile) requiere un click humano real. Estas
+# vistas exponen un navegador headless corriendo en el servidor: el frontend
+# hace polling de un screenshot en base64 y traduce los clicks del usuario
+# sobre esa imagen a coordenadas reales del viewport de Playwright.
+#
+# Todo el estado vive en memoria del proceso (browser.services.cf_cookie_capture)
+# y asume un único worker de Django (--workers 1), tal como está desplegado.
+
+@require_http_methods(["POST"])
+def cf_cookie_capture_start(request: HttpRequest) -> HttpResponse:
+    """Inicia (o reutiliza, si ya está corriendo) la captura manual de cookie."""
+    logger.info("Solicitud de inicio de captura de cookie de Cloudflare")
+    capture_state.start()
+    return JsonResponse(capture_state.snapshot())
+
+
+def cf_cookie_capture_status(request: HttpRequest) -> HttpResponse:
+    """Devuelve el estado actual (para polling desde el frontend)."""
+    return JsonResponse(capture_state.snapshot())
+
+
+@require_http_methods(["POST"])
+def cf_cookie_capture_click(request: HttpRequest) -> HttpResponse:
+    """
+    Recibe coordenadas de click (en píxeles del viewport real de Playwright,
+    ya escaladas por el frontend) y las encola para que el hilo de captura
+    las ejecute con page.mouse.click().
+    """
+    try:
+        data = json.loads(request.body or "{}")
+        x = float(data["x"])
+        y = float(data["y"])
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return JsonResponse({"ok": False, "error": "Coordenadas inválidas"}, status=400)
+
+    ok = capture_state.request_click(x, y)
+    return JsonResponse({"ok": ok})
+
+
+@require_http_methods(["POST"])
+def cf_cookie_capture_cancel(request: HttpRequest) -> HttpResponse:
+    """Cancela la captura en curso y cierra el navegador."""
+    logger.info("Solicitud de cancelación de captura de cookie de Cloudflare")
+    capture_state.cancel()
+    return JsonResponse({"ok": True})

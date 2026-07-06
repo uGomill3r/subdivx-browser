@@ -3,3 +3,4 @@ gunicorn==21.2.0
 python-dotenv==1.0.1
 requests==2.31.0
 rarfile==4.2
+playwright==1.61.0

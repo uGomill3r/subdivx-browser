@@ -191,6 +191,33 @@
       <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.3rem;">
         La API key de subx-bridge se configura por variable de entorno (SUBX_BRIDGE_API_KEY), no acá.
       </div>
+
+      <!-- Captura manual de cookie de Cloudflare -->
+      <div style="margin-top:1.25rem; padding-top:1.1rem; border-top:1px solid var(--border);">
+        <div class="section-header" style="font-size:0.65rem;">Cookie de Cloudflare</div>
+        <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">
+          subx-bridge necesita una cookie de Cloudflare vigente para poder scrapear Subdivx.
+          Si expiró (búsquedas fallando), iniciá la captura manual: vas a ver el challenge
+          en vivo y podés resolver el checkbox de verificación con un click.
+        </label>
+
+        <button type="button" class="btn-outline" id="cf-capture-start-btn" onclick="cfCaptureStart()">
+          <i class="bi bi-shield-lock"></i> Renovar cookie de Cloudflare
+        </button>
+
+        <div id="cf-capture-panel" style="display:none; margin-top:1rem;">
+          <div id="cf-capture-status" style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;"></div>
+          <div style="position:relative; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; max-width:100%; background:#000;">
+            <img id="cf-capture-img" alt="Challenge de Cloudflare" style="display:block; width:100%; cursor:pointer;" />
+          </div>
+          <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.4rem;">
+            Hacé click sobre el checkbox de verificación en la imagen de arriba.
+          </div>
+          <div style="margin-top:0.6rem;">
+            <button type="button" class="btn-outline" onclick="cfCaptureCancel()">Cancelar</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -452,6 +479,100 @@
   renderTypes();
   renderRes();
   renderProviderFields();
+
+  // ── Captura manual de cookie de Cloudflare (screenshot-polling) ──────────
+  const CF_URLS = {
+    start:  "{% url 'browser:cf_cookie_start' %}",
+    status: "{% url 'browser:cf_cookie_status' %}",
+    click:  "{% url 'browser:cf_cookie_click' %}",
+    cancel: "{% url 'browser:cf_cookie_cancel' %}",
+  };
+  // Debe coincidir con VIEWPORT en browser/services/cf_cookie_capture.py.
+  let cfViewport = { width: 1280, height: 800 };
+  let cfPollTimer = null;
+
+  function cfCsrfToken() {
+    return document.querySelector('#settings-form [name=csrfmiddlewaretoken]').value;
+  }
+
+  function cfPostJson(url, body) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": cfCsrfToken() },
+      body: body ? JSON.stringify(body) : "{}",
+    }).then(r => r.json());
+  }
+
+  function cfSetStatusText(msg) {
+    const el = document.getElementById("cf-capture-status");
+    if (el) el.textContent = msg || "";
+  }
+
+  function cfSetStartBtnEnabled(enabled) {
+    document.getElementById("cf-capture-start-btn").disabled = !enabled;
+  }
+
+  function cfCaptureStart() {
+    document.getElementById("cf-capture-panel").style.display = "block";
+    cfSetStartBtnEnabled(false);
+    cfSetStatusText("Iniciando navegador…");
+    cfPostJson(CF_URLS.start)
+      .then(cfApplySnapshot)
+      .catch(e => {
+        cfSetStatusText("Error al iniciar la captura: " + e);
+        cfSetStartBtnEnabled(true);
+      });
+  }
+
+  function cfApplySnapshot(data) {
+    clearTimeout(cfPollTimer);
+
+    cfViewport = data.viewport || cfViewport;
+    cfSetStatusText(data.message);
+
+    if (data.screenshot_b64) {
+      document.getElementById("cf-capture-img").src = "data:image/png;base64," + data.screenshot_b64;
+    }
+
+    if (data.status === "starting" || data.status === "waiting_click") {
+      cfPollTimer = setTimeout(cfPollStatus, 500);
+      return;
+    }
+
+    // Estado terminal: success, error, timeout o idle (cancelado).
+    cfSetStartBtnEnabled(true);
+    if (data.status === "success") {
+      setTimeout(() => { document.getElementById("cf-capture-panel").style.display = "none"; }, 4000);
+    }
+  }
+
+  function cfPollStatus() {
+    fetch(CF_URLS.status)
+      .then(r => r.json())
+      .then(cfApplySnapshot)
+      .catch(e => {
+        cfSetStatusText("Error al consultar el estado: " + e);
+        cfSetStartBtnEnabled(true);
+      });
+  }
+
+  function cfCaptureCancel() {
+    clearTimeout(cfPollTimer);
+    cfPostJson(CF_URLS.cancel).finally(() => {
+      document.getElementById("cf-capture-panel").style.display = "none";
+      cfSetStartBtnEnabled(true);
+    });
+  }
+
+  document.getElementById("cf-capture-img").addEventListener("click", function (ev) {
+    const rect = ev.currentTarget.getBoundingClientRect();
+    const fracX = (ev.clientX - rect.left) / rect.width;
+    const fracY = (ev.clientY - rect.top) / rect.height;
+    cfPostJson(CF_URLS.click, {
+      x: fracX * cfViewport.width,
+      y: fracY * cfViewport.height,
+    });
+  });
 </script>
 
 {% endblock %}

@@ -62,6 +62,20 @@ MEDIA_ROOT_PATH = os.getenv("MEDIA_ROOT", "/media/videos")
 SUBX_BRIDGE_URL = os.getenv("SUBX_BRIDGE_URL", "")
 SUBX_BRIDGE_API_KEY = os.getenv("SUBX_BRIDGE_API_KEY", "")
 
+# Directorio del repo de subx-bridge en el filesystem de la Pi (contiene el
+# .env y el docker-compose.yml). Lo usa la captura manual de cookie de
+# Cloudflare para actualizar el .env y reiniciar el contenedor.
+SUBX_BRIDGE_DIR = os.getenv("SUBX_BRIDGE_DIR", str(Path.home() / "subx-bridge"))
+
+# User-Agent usado por Playwright al visitar subdivx.com durante la captura
+# manual de cookie. Debe coincidir con SUBDIVX_USER_AGENT del .env de
+# subx-bridge, o la cookie cf_clearance quedará asociada a un UA distinto
+# del que usa el bridge para scrapear.
+SUBX_BRIDGE_CF_USER_AGENT = os.getenv(
+    "SUBDIVX_USER_AGENT",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:148.0) Gecko/20100101 Firefox/148.0",
+)
+
 
 VIDEO_EXTENSIONS = [".mp4", ".mkv"]
 
