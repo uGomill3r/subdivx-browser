@@ -44,7 +44,16 @@ SUBX_API_KEY=tu_api_key
 SUBDIVX_PREFERRED_USER=nombre_usuario_subdivx
 MEDIA_ROOT=/ruta/a/tu/carpeta/de/videos
 MEDIA_EXCLUDED_FOLDERS=carpeta1,carpeta2
+
+# Opcional — solo si vas a usar subx-bridge como proveedor de API
+# (https://github.com/fr0gb1t/subx-bridge), seleccionable en la vista de Configuración.
+SUBX_BRIDGE_URL=http://tu-host-o-ip:8787
+SUBX_BRIDGE_API_KEY=una_de_las_claves_definidas_en_SUBX_API_KEYS_del_bridge
 ```
+
+El proveedor de API activo (SubX o subx-bridge) se elige en la vista de **Configuración** y se guarda
+en `config.json`. Si elegís subx-bridge, la URL de tu instancia también se puede editar ahí; la API key
+siempre se toma de la variable de entorno `SUBX_BRIDGE_API_KEY`.
 
 ### 4. Archivos estáticos
 

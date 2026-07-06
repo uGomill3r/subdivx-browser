@@ -27,7 +27,16 @@ from browser.services.subx import (
     get_all_results,
     test_api_connection,
 )
-from browser.services.config import load_config, save_config, get_preferred_user, get_media_root_options, get_release_types, get_resolutions
+from browser.services.config import (
+    load_config,
+    save_config,
+    get_preferred_user,
+    get_media_root_options,
+    get_release_types,
+    get_resolutions,
+    VALID_API_PROVIDERS,
+    API_PROVIDER_SUBX,
+)
 logger = logging.getLogger(__name__)
 
 
@@ -368,18 +377,31 @@ def settings_view(request: HttpRequest) -> HttpResponse:
             logger.warning("resolutions POST inválido — usando config existente")
             resolutions = get_resolutions()
 
+        api_provider = request.POST.get("api_provider", "").strip()
+        if api_provider not in VALID_API_PROVIDERS:
+            logger.warning("api_provider POST inválido '%s' — usando '%s'", api_provider, API_PROVIDER_SUBX)
+            api_provider = API_PROVIDER_SUBX
+        subx_bridge_url = request.POST.get("subx_bridge_url", "").strip()
+
         # Validar que la ruta exista
         if not media_root:
             errors.append("La ruta de la biblioteca no puede estar vacía.")
         elif not os.path.isdir(media_root):
             errors.append(f"La ruta '{media_root}' no existe o no es una carpeta.")
 
+        if api_provider == "subx_bridge" and not subx_bridge_url:
+            errors.append("Elegiste subx-bridge como proveedor: falta la URL de tu instancia.")
+
         if not errors:
-            ok = save_config(media_root, preferred_user, preferred_words, release_types, resolutions)
+            ok = save_config(
+                media_root, preferred_user, preferred_words, release_types, resolutions,
+                api_provider=api_provider, subx_bridge_url=subx_bridge_url,
+            )
             if ok:
                 logger.info(
-                    "Configuración guardada — media_root: '%s', preferred_user: '%s', palabras: %d, tipos: %s, resoluciones: %s",
-                    media_root, preferred_user, len(preferred_words), release_types, resolutions,
+                    "Configuración guardada — media_root: '%s', preferred_user: '%s', palabras: %d, tipos: %s, "
+                    "resoluciones: %s, proveedor: '%s'",
+                    media_root, preferred_user, len(preferred_words), release_types, resolutions, api_provider,
                 )
                 return redirect(f"{request.path}?saved=1")
             else:
@@ -392,6 +414,8 @@ def settings_view(request: HttpRequest) -> HttpResponse:
             "preferred_words_text": ",".join(preferred_words),
             "release_types_json": json.dumps(release_types, ensure_ascii=False),
             "resolutions_json": json.dumps(resolutions, ensure_ascii=False),
+            "api_provider": api_provider,
+            "subx_bridge_url": subx_bridge_url,
         }
     else:
         raw = load_config()
@@ -402,6 +426,8 @@ def settings_view(request: HttpRequest) -> HttpResponse:
             "preferred_words_text": ",".join(raw.get("preferred_words", [])),
             "release_types_json": json.dumps(raw.get("release_types", get_release_types()), ensure_ascii=False),
             "resolutions_json": json.dumps(raw.get("resolutions", get_resolutions()), ensure_ascii=False),
+            "api_provider": raw.get("api_provider", API_PROVIDER_SUBX),
+            "subx_bridge_url": raw.get("subx_bridge_url", ""),
         }
         logger.info("Vista de configuración cargada — saved=%s", success)
 

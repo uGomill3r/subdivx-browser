@@ -17,6 +17,11 @@ _DEFAULTS = {
     "preferred_words": [],       # palabras extra para el filtro inicial
 }
 
+# Proveedores de API de subtítulos soportados
+API_PROVIDER_SUBX = "subx"
+API_PROVIDER_SUBX_BRIDGE = "subx_bridge"
+VALID_API_PROVIDERS = {API_PROVIDER_SUBX, API_PROVIDER_SUBX_BRIDGE}
+
 
 # Estructura por defecto de tipos y resoluciones con sus keywords de búsqueda
 DEFAULT_RELEASE_TYPES = [
@@ -42,6 +47,8 @@ def _settings_defaults() -> dict:
         "media_root_options": [],   # lista de rutas predefinidas para el select
         "release_types": DEFAULT_RELEASE_TYPES,
         "resolutions": DEFAULT_RESOLUTIONS,
+        "api_provider": API_PROVIDER_SUBX,
+        "subx_bridge_url": settings.SUBX_BRIDGE_URL,
     }
 
 
@@ -76,6 +83,8 @@ def save_config(
     preferred_words: list[str],
     release_types: list[str] | None = None,
     resolutions: list[str] | None = None,
+    api_provider: str | None = None,
+    subx_bridge_url: str | None = None,
 ) -> bool:
     """
     Persiste la configuración en config.json preservando media_root_options.
@@ -83,6 +92,11 @@ def save_config(
     """
     defaults = _settings_defaults()
     existing = load_config()
+
+    if api_provider is not None and api_provider not in VALID_API_PROVIDERS:
+        logger.warning("api_provider inválido '%s' — se ignora y se mantiene el existente", api_provider)
+        api_provider = None
+
     data = {
         "media_root": media_root.strip(),
         "preferred_user": preferred_user.strip(),
@@ -90,14 +104,17 @@ def save_config(
         "media_root_options": existing.get("media_root_options", []),
         "release_types": release_types if release_types is not None else existing.get("release_types", defaults["release_types"]),
         "resolutions": resolutions if resolutions is not None else existing.get("resolutions", defaults["resolutions"]),
+        "api_provider": api_provider if api_provider is not None else existing.get("api_provider", defaults["api_provider"]),
+        "subx_bridge_url": (subx_bridge_url.strip() if subx_bridge_url is not None else existing.get("subx_bridge_url", defaults["subx_bridge_url"])),
     }
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         logger.info(
-            "config.json guardado — media_root: '%s', preferred_user: '%s', palabras: %s, tipos: %d, resoluciones: %d",
+            "config.json guardado — media_root: '%s', preferred_user: '%s', palabras: %s, tipos: %d, "
+            "resoluciones: %d, proveedor: '%s'",
             data["media_root"], data["preferred_user"], data["preferred_words"],
-            len(data["release_types"]), len(data["resolutions"]),
+            len(data["release_types"]), len(data["resolutions"]), data["api_provider"],
         )
         return True
     except OSError as e:
@@ -139,3 +156,19 @@ def get_resolutions() -> list[dict]:
     """Retorna las resoluciones activas con sus keywords desde config.json."""
     config = load_config()
     return config.get("resolutions", DEFAULT_RESOLUTIONS)
+
+
+def get_api_provider() -> str:
+    """Retorna el proveedor de API activo ('subx' o 'subx_bridge')."""
+    config = load_config()
+    provider = config.get("api_provider", API_PROVIDER_SUBX)
+    if provider not in VALID_API_PROVIDERS:
+        logger.warning("api_provider desconocido en config.json ('%s') — usando '%s'", provider, API_PROVIDER_SUBX)
+        return API_PROVIDER_SUBX
+    return provider
+
+
+def get_subx_bridge_url() -> str:
+    """Retorna la URL base configurada para subx-bridge (config.json > settings)."""
+    config = load_config()
+    return config.get("subx_bridge_url") or settings.SUBX_BRIDGE_URL

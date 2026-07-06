@@ -56,6 +56,12 @@ SUBX_API_KEY = os.getenv("SUBX_API_KEY", "")
 SUBDIVX_PREFERRED_USER = os.getenv("SUBDIVX_PREFERRED_USER", "")
 MEDIA_ROOT_PATH = os.getenv("MEDIA_ROOT", "/media/videos")
 
+# subx-bridge: proveedor alternativo, autohospedado, que reemplaza a la SubX API
+# consultando Subdivx de forma directa (https://github.com/fr0gb1t/subx-bridge).
+# La URL no tiene un valor público fijo porque cada quien corre su propia instancia.
+SUBX_BRIDGE_URL = os.getenv("SUBX_BRIDGE_URL", "")
+SUBX_BRIDGE_API_KEY = os.getenv("SUBX_BRIDGE_API_KEY", "")
+
 
 VIDEO_EXTENSIONS = [".mp4", ".mkv"]
 

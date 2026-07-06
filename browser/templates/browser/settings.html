@@ -159,6 +159,41 @@
     <input type="hidden" name="resolutions" id="res-hidden" value="{{ config.resolutions_json }}" />
   </div>
 
+  <!-- Proveedor de API -->
+  <div style="margin-bottom: 1.75rem;">
+    <div class="section-header">Proveedor de API</div>
+    <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem;">
+      Fuente de datos para buscar y descargar subtítulos.
+    </label>
+
+    <select name="api_provider" id="api-provider-select" class="input-dark" style="margin-bottom:0.75rem;">
+      <option value="subx" {% if config.api_provider == "subx" %}selected{% endif %}>
+        SubX API (subx-api.duckdns.org)
+      </option>
+      <option value="subx_bridge" {% if config.api_provider == "subx_bridge" %}selected{% endif %}>
+        subx-bridge (autohospedado, consulta Subdivx directo)
+      </option>
+    </select>
+
+    <div id="subx-bridge-url-wrapper" style="display:none;">
+      <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem;">
+        URL de tu instancia de subx-bridge
+      </label>
+      <input
+        type="text"
+        name="subx_bridge_url"
+        value="{{ config.subx_bridge_url }}"
+        class="input-dark"
+        placeholder="http://pibox.lan:8787"
+        spellcheck="false"
+        autocomplete="off"
+      />
+      <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.3rem;">
+        La API key de subx-bridge se configura por variable de entorno (SUBX_BRIDGE_API_KEY), no acá.
+      </div>
+    </div>
+  </div>
+
   <!-- Modal de edición de keywords -->
   <div id="kw-modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center;">
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem; width:min(420px,90vw); position:relative;">
@@ -403,10 +438,20 @@
     if (e.key === "Escape" && kwContext) closeKwModal();
   });
 
+  // ── Proveedor de API ──────────────────────────────────────────────────────
+  const providerSelect = document.getElementById("api-provider-select");
+  const bridgeUrlWrapper = document.getElementById("subx-bridge-url-wrapper");
+
+  function renderProviderFields() {
+    bridgeUrlWrapper.style.display = providerSelect.value === "subx_bridge" ? "block" : "none";
+  }
+  providerSelect.addEventListener("change", renderProviderFields);
+
   // ── Render inicial ────────────────────────────────────────────────────────
   renderWords();
   renderTypes();
   renderRes();
+  renderProviderFields();
 </script>
 
 {% endblock %}

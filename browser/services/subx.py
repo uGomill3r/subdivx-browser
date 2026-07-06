@@ -1,8 +1,16 @@
 import logging
 import requests
-from dataclasses import dataclass
 from django.conf import settings
-from browser.services.config import get_preferred_user, get_preferred_words, get_release_types, get_resolutions
+from browser.services.config import (
+    get_preferred_user,
+    get_preferred_words,
+    get_release_types,
+    get_resolutions,
+    get_api_provider,
+    API_PROVIDER_SUBX_BRIDGE,
+)
+from browser.services.subtitle_types import SubtitleResult, to_subtitle_results
+from browser.services import subx_bridge
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +31,6 @@ RESOLUTION_KEYWORDS = {
 }
 
 
-@dataclass
-class SubtitleResult:
-    id: str
-    title: str
-    description: str
-    uploader_name: str
-    posted_at: str
-    downloads: int
-    matched_by: str  # criterio usado para encontrarlo
-
-
 def _get_headers() -> dict:
     return {
         "Authorization": f"Bearer {settings.SUBX_API_KEY}",
@@ -43,9 +40,13 @@ def _get_headers() -> dict:
 
 def search_subtitles(title: str, year: str = "", limit: int = 20) -> list[dict]:
     """
-    Busca subtítulos en SubX API por título y año opcional.
+    Busca subtítulos por título y año opcional.
+    Delega al proveedor de API activo (SubX o subx-bridge, configurable en Settings).
     Retorna lista cruda de resultados.
     """
+    if get_api_provider() == API_PROVIDER_SUBX_BRIDGE:
+        return subx_bridge.search_subtitles(title, year=year, limit=limit)
+
     url = f"{SUBX_BASE_URL}/subtitles/search"
     params: dict = {"title": title, "limit": limit}
     if year:
@@ -206,20 +207,8 @@ def get_all_results(title: str, year: str = "") -> list[SubtitleResult]:
     return _to_subtitle_results(raw, "all")
 
 
-def _to_subtitle_results(raw: list[dict], matched_by: str) -> list[SubtitleResult]:
-    """Convierte resultados crudos a dataclasses."""
-    return [
-        SubtitleResult(
-            id=str(r.get("id", "")),
-            title=r.get("title", ""),
-            description=r.get("description", ""),
-            uploader_name=r.get("uploader_name", ""),
-            posted_at=r.get("posted_at", ""),
-            downloads=r.get("downloads", 0),
-            matched_by=matched_by,
-        )
-        for r in raw
-    ]
+# Alias — se mantiene el nombre histórico usado en el resto del módulo.
+_to_subtitle_results = to_subtitle_results
 
 
 def test_api_connection() -> dict:
@@ -237,8 +226,13 @@ def test_api_connection() -> dict:
         "detail": str,
         "elapsed_ms": int | None,
       }
+
+    Delega a subx_bridge.test_api_connection() cuando ese es el proveedor activo.
     """
     import time
+
+    if get_api_provider() == API_PROVIDER_SUBX_BRIDGE:
+        return subx_bridge.test_api_connection()
 
     if not settings.SUBX_API_KEY:
         logger.warning("Test de conexión a SubX API: SUBX_API_KEY no está configurada")
@@ -320,8 +314,12 @@ def test_api_connection() -> dict:
 def download_subtitle(subtitle_id: str) -> bytes | None:
     """
     Descarga el archivo .srt de un subtítulo por su ID.
+    Delega al proveedor de API activo (SubX o subx-bridge).
     Retorna los bytes del archivo o None si falla.
     """
+    if get_api_provider() == API_PROVIDER_SUBX_BRIDGE:
+        return subx_bridge.download_subtitle(subtitle_id)
+
     url = f"{SUBX_BASE_URL}/subtitles/{subtitle_id}/download"
 
     try:
