@@ -42,7 +42,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {}
 
 LANGUAGE_CODE = "es-ar"
-TIME_ZONE = "America/Argentina/Buenos_Aires"
+TIME_ZONE = "America/Lima"
 USE_I18N = True
 USE_TZ = True
 
