@@ -38,6 +38,12 @@
       "keywords": [
         "hdtv"
       ]
+    },
+    {
+      "name": "iTunes",
+      "keywords": [
+        "itunes"
+      ]
     }
   ],
   "resolutions": [
@@ -66,5 +72,7 @@
         "uhd"
       ]
     }
-  ]
+  ],
+  "api_provider": "subx",
+  "subx_bridge_url": "https://subxbridge.lan:8443"
 }
