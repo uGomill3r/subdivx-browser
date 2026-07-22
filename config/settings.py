@@ -77,6 +77,12 @@ SUBX_BRIDGE_CF_USER_AGENT = os.getenv(
 )
 
 
+# Botón "mover a biblioteca" en el índice: solo se muestra cuando la
+# media_root activa es MOVE_SOURCE_PATH, y mueve la carpeta completa a
+# MOVE_DEST_PATH (mismo disco, /mnt/HDD, para que sea un rename atómico).
+MOVE_SOURCE_PATH = os.getenv("MOVE_SOURCE_PATH", "/mnt/HDD/Descargas")
+MOVE_DEST_PATH = os.getenv("MOVE_DEST_PATH", "/mnt/HDD/Library/Movies")
+
 VIDEO_EXTENSIONS = [".mp4", ".mkv"]
 
 # Carpetas a excluir del escaneo (separadas por coma en .env)

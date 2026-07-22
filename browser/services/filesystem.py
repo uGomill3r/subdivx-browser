@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import zipfile
 import logging
 from dataclasses import dataclass, field
@@ -262,6 +263,41 @@ def list_media_folders() -> list[FolderInfo]:
 
     logger.info("Carpetas de media encontradas: %d", len(folders))
     return folders
+
+
+def move_folder_to_library(folder: FolderInfo) -> tuple[bool, str]:
+    """
+    Mueve la carpeta completa de una película (folder.folder_path) hacia
+    settings.MOVE_DEST_PATH, conservando el mismo nombre de carpeta.
+
+    Retorna (True, ruta_destino) si tuvo éxito, o (False, mensaje_de_error)
+    si falló (destino inaccesible, carpeta ya existente en destino, o
+    error de filesystem al mover).
+    """
+    dest_root = settings.MOVE_DEST_PATH
+    dest_path = os.path.join(dest_root, folder.folder_name)
+
+    try:
+        os.makedirs(dest_root, exist_ok=True)
+    except OSError as e:
+        logger.error("No se pudo acceder/crear el destino '%s': %s", dest_root, e)
+        return False, f"No se pudo acceder a la carpeta de destino: {e}"
+
+    if os.path.exists(dest_path):
+        logger.warning(
+            "Ya existe una carpeta llamada '%s' en destino '%s' — se aborta el move",
+            folder.folder_name, dest_root,
+        )
+        return False, "Ya existe una carpeta con ese nombre en el destino."
+
+    try:
+        shutil.move(folder.folder_path, dest_path)
+    except OSError as e:
+        logger.error("Error al mover '%s' a '%s': %s", folder.folder_path, dest_path, e)
+        return False, f"Error al mover la carpeta: {e}"
+
+    logger.info("Carpeta movida: '%s' → '%s'", folder.folder_path, dest_path)
+    return True, dest_path
 
 
 def get_folder_info(folder_name: str) -> FolderInfo | None:

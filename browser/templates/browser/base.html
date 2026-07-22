@@ -166,6 +166,24 @@
       font-size: 0.72rem;
     }
 
+    /* Botón "mover a biblioteca" dentro de la card de carpeta */
+    .move-btn {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 1.9rem;
+      height: 1.9rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .move-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .folder-card-wrapper { transition: opacity 0.15s ease; }
+
     /* Botones */
     .btn-accent {
       background: var(--accent);

@@ -16,6 +16,7 @@ from browser.services.filesystem import (
     clean_folder,
     list_srts_in_archive,
     extract_srt_from_archive,
+    move_folder_to_library,
 )
 from browser.services.subx import (
     search_subtitles,
@@ -31,6 +32,7 @@ from browser.services.config import (
     load_config,
     save_config,
     get_preferred_user,
+    get_media_root,
     get_media_root_options,
     get_release_types,
     get_resolutions,
@@ -50,14 +52,64 @@ def index(request: HttpRequest) -> HttpResponse:
     return render(request, "browser/index.html")
 
 
+def _can_move_to_library() -> bool:
+    """
+    El botón de mover a biblioteca solo tiene sentido cuando la media_root
+    activa es la carpeta de descargas configurada (settings.MOVE_SOURCE_PATH).
+    """
+    return os.path.normpath(get_media_root()) == os.path.normpath(settings.MOVE_SOURCE_PATH)
+
+
 def folder_list(request: HttpRequest) -> HttpResponse:
     """
     Retorna la lista de carpetas como HTML parcial para HTMX.
     Es el único punto donde se lee el disco para el índice.
     """
     folders = list_media_folders()
+    can_move = _can_move_to_library()
     logger.info("Lista de carpetas cargada — total: %d", len(folders))
-    return render(request, "browser/partials/folder_list.html", {"folders": folders})
+    return render(request, "browser/partials/folder_list.html", {
+        "folders": folders,
+        "can_move": can_move,
+    })
+
+
+@require_http_methods(["POST"])
+def move_folder_view(request: HttpRequest, folder_name: str) -> HttpResponse:
+    """
+    Mueve la carpeta de una película desde la carpeta de descargas activa
+    hacia settings.MOVE_DEST_PATH (Library/Movies). Solo permitido cuando
+    la media_root activa coincide con settings.MOVE_SOURCE_PATH.
+
+    Responde con HTML parcial para HTMX: en éxito, respuesta vacía (la card
+    se elimina del listado); en error, vuelve a renderizar la card con el
+    mensaje de error.
+    """
+    if not _can_move_to_library():
+        logger.warning(
+            "Intento de mover carpeta '%s' con media_root distinta de MOVE_SOURCE_PATH", folder_name
+        )
+        return HttpResponse(
+            "<p class='text-danger' style='font-size:0.78rem; margin:0.4rem 0 0;'>"
+            "Esta acción solo está disponible cuando la biblioteca activa es la carpeta de Descargas."
+            "</p>",
+            status=403,
+        )
+
+    folder = get_folder_info(folder_name)
+    if not folder:
+        return HttpResponse("<p class='text-danger'>Carpeta no encontrada.</p>", status=404)
+
+    ok, result = move_folder_to_library(folder)
+    if not ok:
+        return render(request, "browser/partials/folder_card.html", {
+            "folder": folder,
+            "can_move": True,
+            "move_error": result,
+        }, status=500)
+
+    logger.info("Carpeta '%s' movida a Library — destino: '%s'", folder_name, result)
+    return HttpResponse("")
 
 
 def folder_detail(request: HttpRequest, folder_name: str) -> HttpResponse:
