@@ -121,6 +121,7 @@
       margin-bottom: 0.6rem;
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 1rem;
       transition: border-color 0.15s, background 0.15s;
       text-decoration: none;
@@ -166,23 +167,40 @@
       font-size: 0.72rem;
     }
 
-    /* Botón "mover a biblioteca" dentro de la card de carpeta */
+    /* Grupo de badges + botón de mover, a la derecha de la card */
+    .folder-card-badges {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+    @media (max-width: 480px) {
+      .folder-card-badges {
+        justify-content: flex-start;
+        width: 100%;
+      }
+    }
+
+    /* Botón "mover a biblioteca" dentro de la card de carpeta — mismo alto que los badges */
     .move-btn {
       background: transparent;
       color: var(--text-muted);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      width: 1.9rem;
-      height: 1.9rem;
+      border-radius: 3px;
+      width: 1.5rem;
+      height: 1.5rem;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.95rem;
+      font-size: 0.85rem;
       cursor: pointer;
       transition: border-color 0.15s, color 0.15s;
     }
     .move-btn:hover { border-color: var(--accent); color: var(--accent); }
     .folder-card-wrapper { transition: opacity 0.15s ease; }
+
 
     /* Botones */
     .btn-accent {
