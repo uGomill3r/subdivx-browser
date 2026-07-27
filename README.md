@@ -49,6 +49,15 @@ MEDIA_EXCLUDED_FOLDERS=carpeta1,carpeta2
 # (https://github.com/fr0gb1t/subx-bridge), seleccionable en la vista de Configuración.
 SUBX_BRIDGE_URL=http://tu-host-o-ip:8787
 SUBX_BRIDGE_API_KEY=una_de_las_claves_definidas_en_SUBX_API_KEYS_del_bridge
+
+# Opcional — solo si vas a usar la renovación interactiva de cookie de Cloudflare
+# desde la vista de Configuración (requiere Playwright instalado, ver más abajo).
+SUBX_BRIDGE_DIR=/home/pi/subx-bridge          # ruta al repo de subx-bridge (contiene .env y docker-compose.yml)
+SUBDIVX_USER_AGENT=Mozilla/5.0 (X11; Linux x86_64; rv:148.0) Gecko/20100101 Firefox/148.0
+
+# Opcional — botón "mover a biblioteca" en las tarjetas del índice
+MOVE_SOURCE_PATH=/mnt/HDD/Descargas           # solo se muestra el botón si MEDIA_ROOT activo == esta ruta
+MOVE_DEST_PATH=/mnt/HDD/Library/Movies
 ```
 
 El proveedor de API activo (SubX o subx-bridge) se elige en la vista de **Configuración** y se guarda
@@ -218,11 +227,13 @@ Título (año) [resolución] [tipo opcional] ...
 ## Búsqueda de subtítulos
 
 La búsqueda usa título **y año** como parámetros a la API (el año filtra resultados correctamente en SubX).
+Hay 4 formas de buscar, disponibles como botones/formularios debajo de los resultados (y también, las
+que aplican, en el panel de "sin resultados del usuario preferido"):
 
 ### Búsqueda inicial automática (sin keyword):
 1. Usuario preferido + tipo + resolución + palabras preferidas (todas las condiciones, AND)
 2. Si no hay resultados → tipo + resolución sin usuario (automático, muestra aviso)
-3. Si tampoco hay resultados → muestra formulario de keyword y botón "Ver todos"
+3. Si tampoco hay resultados → muestra formulario de keyword, botón "Ver todos" y botón "+ Búsqueda libre"
 
 ### Con keyword manual:
 - Busca en todos los resultados de la API por las palabras ingresadas (AND)
@@ -230,6 +241,14 @@ La búsqueda usa título **y año** como parámetros a la API (el año filtra re
 
 ### Ver todos:
 - Disponible en cualquier momento, muestra todos los resultados sin filtrar
+
+### Búsqueda libre:
+- Disponible en cualquier momento junto a las otras opciones ("+ Búsqueda libre")
+- Es una búsqueda **nueva e independiente**: las palabras ingresadas se mandan directo a la API como
+  término de búsqueda, sin usar título, año, tipo, resolución ni usuario preferido del video/carpeta
+- No tiene cascada de fallback — o hay resultados para esas palabras, o se muestra "sin resultados"
+- Útil para casos donde el nombre de la carpeta no coincide bien con el título real (ediciones,
+  nombres alternativos, franquicias, etc.)
 
 ## Descarga de subtítulos
 
@@ -241,6 +260,38 @@ Proceso al guardar:
 1. Si existe `video.srt` → renombrar a `video.en.srt`
 2. Limpiar carpeta: eliminar todo excepto video (`.mp4`/`.mkv`), `.srt` y carpetas `subtitle/subtitles`
 3. Guardar como `video.es.srt`
+
+## Mover a biblioteca
+
+Cada tarjeta de película en el índice puede mostrar un botón (ícono de flecha, Bootstrap Icons) para
+mover la carpeta completa desde la carpeta de descargas activa hacia `MOVE_DEST_PATH` (por ejemplo,
+`Library/Movies`), conservando el nombre de carpeta.
+
+- Solo aparece cuando la `media_root` activa coincide exactamente con `MOVE_SOURCE_PATH`; no tiene
+  sentido (ni se permite) moverla si ya estás viendo la biblioteca de destino.
+- Pide confirmación antes de mover (`hx-confirm` de HTMX).
+- Si el destino ya tiene una carpeta con ese nombre, o hay un error de filesystem, la tarjeta se
+  vuelve a renderizar con el mensaje de error en vez de desaparecer.
+- Al mover con éxito, la tarjeta se elimina del listado sin recargar la página (respuesta HTMX vacía).
+
+## Panel de logs en la app
+
+Además de los logs vía `journalctl` (para debugging de infraestructura), la app expone un visor propio
+en `/logs/` (ícono de lista en la barra superior), pensado para revisar actividad sin acceso SSH:
+
+- Lee `logs/subdivx-browser.log` (rotación automática a 2 MB, hasta 3 backups).
+- Filtro por **nivel mínimo** (`DEBUG` a `CRITICAL`, o "Todos") y por **cantidad de líneas** (100 a 5000)
+  a mostrar desde el final del archivo.
+- Muestra las líneas más recientes primero, coloreadas por severidad (rojo para ERROR/CRITICAL,
+  ámbar para WARNING).
+- Indica cuántas líneas coinciden con el filtro vs. cuántas se están mostrando.
+
+## Instalación como app (PWA)
+
+El proyecto incluye manifest (`manifest.webmanifest`), service worker mínimo y set de íconos
+(`apple-touch-icon`, `icon-192`, `icon-512`) para poder "instalar" la app en la pantalla de inicio
+de un celular (modo `standalone`, sin barra de navegador), tanto en iOS como Android, una vez servida
+por HTTPS con el certificado de `mkcert` instalado en el dispositivo (ver paso 6 de instalación).
 
 ## Configuración desde la interfaz
 
@@ -407,8 +458,22 @@ SUBX_BRIDGE_API_KEY=una-clave-secreta-propia   # debe coincidir con SUBX_API_KEY
 Reiniciá el servicio, entrá a **Configuración**, elegí "subx-bridge" como proveedor y verificá con el
 botón de test de conexión (hace `/health` + una búsqueda de prueba).
 
-### Mantenimiento
+### Mantenimiento: renovación de cookie desde la propia app
 
-La cookie `SUBDIVX_CF_CLEARANCE` expira periódicamente (Cloudflare). Cuando el bridge empiece a fallar
-o devolver resultados vacíos, repetí el paso 1 para renovarla desde un navegador y reiniciá el contenedor
-(`docker compose up -d --build`).
+La cookie `SUBDIVX_CF_CLEARANCE` expira periódicamente (Cloudflare). En vez de tener que repetir el
+paso 1 a mano desde un navegador externo, la vista de **Configuración** (con subx-bridge seleccionado)
+incluye un botón **"Renovar cookie de Cloudflare"** que resuelve el challenge sin salir de la app:
+
+1. Al hacer click, el servidor abre un navegador headless (Playwright/Chromium) contra `subdivx.com`
+   y empieza a transmitir capturas de pantalla en vivo (polling cada ~0.4s) a la UI.
+2. El usuario hace click sobre la imagen mostrada, en el lugar donde aparece el checkbox del challenge
+   (Turnstile); el frontend traduce esas coordenadas al viewport real (1280×800) del navegador headless.
+3. En cuanto Cloudflare emite la cookie `cf_clearance`, la app la escribe (junto con `sdx` y el
+   User-Agent) directamente en el `.env` de subx-bridge y reinicia el contenedor (`docker compose restart`)
+   automáticamente.
+4. Si nadie interactúa, la captura se cancela sola a los 2 minutos (timeout de seguridad); también se
+   puede cancelar manualmente en cualquier momento.
+
+Esto requiere que `subdivx-browser` corra en la misma máquina donde vive el repo de subx-bridge (o con
+acceso a su ruta), configurado vía `SUBX_BRIDGE_DIR`, y que Playwright con Chromium esté instalado en
+el entorno de subdivx-browser (`playwright install chromium`).

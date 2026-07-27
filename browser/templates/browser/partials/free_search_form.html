@@ -1,0 +1,22 @@
+<form
+  hx-get="{% url 'browser:search_subtitles' folder.folder_name %}"
+  hx-target="#results-area"
+  hx-indicator="#loading-indicator"
+  hx-on:htmx:before-request="setLoadingMsg('Buscando…')"
+>
+  <input type="hidden" name="video" value="{{ video_filename }}" />
+  <div class="d-flex gap-2 flex-wrap align-items-center">
+    <input
+      type="text"
+      name="free_query"
+      class="input-dark"
+      placeholder="Ej: Nombre de la película 2024"
+      value="{{ free_query|default:'' }}"
+      style="max-width:280px;"
+    />
+    <button type="submit" class="btn-accent">Buscar</button>
+  </div>
+  <div style="color:var(--text-muted); font-size:0.78rem; margin-top:0.4rem;">
+    Búsqueda nueva e independiente — ignora título, año, tipo y resolución del archivo
+  </div>
+</form>

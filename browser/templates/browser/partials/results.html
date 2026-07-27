@@ -5,6 +5,12 @@
     Sin resultados para <strong style="color:var(--text);">{{ folder.title }}</strong> en SubDivX.
   </div>
 
+{% elif criteria == "free_none" %}
+  <div style="color:var(--text-muted); padding:1rem 0 1.25rem;">
+    Sin resultados para la búsqueda libre <strong style="color:var(--text);">“{{ free_query }}”</strong> en SubDivX.
+  </div>
+  {% include "browser/partials/free_search_form.html" %}
+
 {% elif criteria == "needs_keyword" %}
   <!-- Sin resultados del usuario preferido: pedir keyword -->
   <div style="
@@ -23,7 +29,7 @@
       Ingresá una palabra clave para ampliar la búsqueda.
     </div>
     {% include "browser/partials/keyword_form.html" %}
-    <div style="margin-top:0.75rem;">
+    <div style="margin-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
       <button
         class="btn-outline"
         style="font-size:0.8rem;"
@@ -34,6 +40,16 @@
       >
         Ver todos
       </button>
+      <button
+        onclick="this.parentElement.parentElement.querySelector('.free-search-form-extra').style.display='block'; this.style.display='none';"
+        class="btn-outline"
+        style="font-size:0.8rem;"
+      >
+        + Búsqueda libre
+      </button>
+    </div>
+    <div class="free-search-form-extra" style="display:none; margin-top:0.75rem;">
+      {% include "browser/partials/free_search_form.html" %}
     </div>
   </div>
 
@@ -106,15 +122,22 @@
   </div>
   {% endfor %}
 
-  <!-- Búsqueda adicional por keyword — siempre disponible -->
+  <!-- Búsqueda adicional por keyword o búsqueda libre — siempre disponibles -->
   <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--border);">
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
       <button
-        onclick="this.parentElement.parentElement.querySelector('.keyword-form-extra').style.display='block'; this.parentElement.style.display='none';"
+        onclick="this.parentElement.parentElement.querySelector('.keyword-form-extra').style.display='block'; this.style.display='none';"
         class="btn-outline"
         style="font-size:0.8rem;"
       >
         + Buscar con palabra clave
+      </button>
+      <button
+        onclick="this.parentElement.parentElement.querySelector('.free-search-form-extra').style.display='block'; this.style.display='none';"
+        class="btn-outline"
+        style="font-size:0.8rem;"
+      >
+        + Búsqueda libre
       </button>
       <button
         class="btn-outline"
@@ -132,6 +155,12 @@
         Ampliá la búsqueda filtrando por una palabra clave en la descripción.
       </div>
       {% include "browser/partials/keyword_form.html" %}
+    </div>
+    <div class="free-search-form-extra" style="display:none; margin-top:0.75rem;">
+      <div style="color:var(--text-muted); font-size:0.82rem; margin-bottom:0.75rem;">
+        Búsqueda nueva e independiente en SubDivX — no usa nada del video ni de los filtros anteriores.
+      </div>
+      {% include "browser/partials/free_search_form.html" %}
     </div>
   </div>
 

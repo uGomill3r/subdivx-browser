@@ -207,6 +207,19 @@ def get_all_results(title: str, year: str = "") -> list[SubtitleResult]:
     return _to_subtitle_results(raw, "all")
 
 
+def search_free(query: str) -> list[SubtitleResult]:
+    """
+    Búsqueda libre: usa las palabras ingresadas por el usuario directamente
+    como término de búsqueda contra la API, sin usar título/año de la carpeta
+    y sin aplicar ningún filtro adicional (tipo, resolución, usuario). Es una
+    búsqueda nueva e independiente de las otras 3 opciones — no tiene cascada
+    de fallback.
+    """
+    raw = search_subtitles(query)
+    logger.info("Búsqueda libre '%s' — resultados: %d", query, len(raw))
+    return _to_subtitle_results(raw, "free")
+
+
 # Alias — se mantiene el nombre histórico usado en el resto del módulo.
 _to_subtitle_results = to_subtitle_results
 

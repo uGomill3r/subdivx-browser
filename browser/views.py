@@ -26,6 +26,7 @@ from browser.services.subx import (
     filter_by_resolution,
     download_subtitle,
     get_all_results,
+    search_free,
     test_api_connection,
 )
 from browser.services.config import (
@@ -137,7 +138,7 @@ def folder_detail(request: HttpRequest, folder_name: str) -> HttpResponse:
 def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpResponse:
     """
     Busca subtítulos para un video seleccionado.
-    Parámetros GET: video (nombre de archivo), keyword (opcional).
+    Parámetros GET: video (nombre de archivo), keyword (opcional), free_query (opcional).
 
     Flujo sin keyword:
       1. usuario + tipo + resolución
@@ -148,6 +149,12 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
     Flujo con keyword:
       Cascada completa incluyendo keyword, tipo+res y todos.
 
+    Flujo con free_query:
+      Búsqueda nueva e independiente contra la API usando esas palabras como
+      término de búsqueda (sin título/año de la carpeta, sin tipo/resolución,
+      sin usuario preferido). Sin cascada de fallback: o hay resultados o no
+      los hay. Tiene prioridad sobre keyword y show_all si vinieran juntos.
+
     Responde con HTML parcial para HTMX.
     """
     import time
@@ -155,6 +162,7 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
 
     video_filename = request.GET.get("video", "").strip()
     keyword = request.GET.get("keyword", "").strip()
+    free_query = request.GET.get("free_query", "").strip()
     show_all = request.GET.get("show_all", "").strip() == "1"
 
     folder = get_folder_info(folder_name)
@@ -172,7 +180,16 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
     sub_status = check_subtitle_status(folder.folder_path, video_filename)
     preferred_user = get_preferred_user()
 
-    if show_all:
+    if free_query:
+        # Búsqueda libre — independiente de título/año/tipo/resolución, sin fallback.
+        results = search_free(free_query)
+        criteria = "free" if results else "free_none"
+        t2 = time.time()
+        logger.info(
+            "Búsqueda libre — video: '%s' — query: '%s' — resultados: %d",
+            video_filename, free_query, len(results)
+        )
+    elif show_all:
         # Mostrar todos los resultados sin filtros
         results = get_all_results(folder.title, year=folder.year)
         t2 = time.time()
@@ -235,6 +252,7 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
         "video_filename": video_filename,
         "results": results,
         "criteria": criteria,
+        "free_query": free_query,
         "sub_status": sub_status,
         "criteria_labels": {
             "user+type+res+words": f"usuario preferido + {folder.release_type} + {folder.resolution} + palabras preferidas",
@@ -248,6 +266,8 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
             "none":          "sin resultados",
             "needs_keyword": "sin resultados del usuario preferido",
             "no_user+type+res": f"sin resultados del usuario preferido — {folder.release_type} + {folder.resolution}",
+            "free":          f"búsqueda libre: “{free_query}”",
+            "free_none":     f"búsqueda libre: “{free_query}”",
         },
     }
     return render(request, "browser/partials/results.html", context)
