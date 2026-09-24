@@ -11,6 +11,7 @@ DEBUG = os.getenv("DEBUG", "True") == "True"
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
+    "django.contrib.sessions",
     "django.contrib.staticfiles",
     "browser",
 ]
@@ -42,6 +43,12 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # Sin base de datos — solo filesystem y API calls
 DATABASES = {}
+
+# Sesiones en cookie firmada — sin base de datos configurada, el backend por
+# defecto (db) intentaría leer la tabla django_session y fallaría con 500.
+# El backend de cookie firmada no necesita DB ni migraciones; el contenido va
+# firmado con SECRET_KEY, así que no puede ser manipulado por el cliente.
+SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 
 LANGUAGE_CODE = "es-ar"
 TIME_ZONE = "America/Lima"
