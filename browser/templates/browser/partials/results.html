@@ -1,9 +1,18 @@
 {% load browser_extras %}
 
 {% if criteria == "none" %}
-  <div style="color:var(--text-muted); padding:1rem 0;">
+  <div style="color:var(--text-muted); padding:1rem 0 1.25rem;">
     Sin resultados para <strong style="color:var(--text);">{{ folder.title }}</strong> en SubDivX.
+    {% if folder.year %}
+      <div style="font-size:0.82rem; margin-top:0.4rem;">
+        Se probó también sin filtrar por año ({{ folder.year }}) y no hubo coincidencias.
+      </div>
+    {% endif %}
   </div>
+  <div style="color:var(--text-muted); font-size:0.82rem; margin-bottom:0.75rem;">
+    Probá una búsqueda libre con las palabras que quieras (no usa nada del video ni de los filtros anteriores):
+  </div>
+  {% include "browser/partials/free_search_form.html" %}
 
 {% elif criteria == "free_none" %}
   <div style="color:var(--text-muted); padding:1rem 0 1.25rem;">
@@ -72,10 +81,15 @@
 
   <!-- Criterio usado -->
   <div class="section-header">Resultados</div>
-  <div class="d-flex align-items-center gap-2 mb-3">
+  <div class="d-flex align-items-center gap-2 mb-3" style="flex-wrap:wrap;">
     <span class="criteria-badge">
       filtrado por: {{ criteria_labels|get_item:criteria }}
     </span>
+    {% if year_filter_dropped %}
+      <span class="criteria-badge-warn" title="El año de la carpeta ({{ folder.year }}) no arrojó resultados; se reintentó sin filtrar por año.">
+        sin filtro de año ({{ folder.year }})
+      </span>
+    {% endif %}
     <span style="color:var(--text-muted); font-size:0.78rem;">
       {{ results|length }} subtítulo{{ results|length|pluralize:"s" }}
     </span>

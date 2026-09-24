@@ -155,6 +155,13 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
       sin usuario preferido). Sin cascada de fallback: o hay resultados o no
       los hay. Tiene prioridad sobre keyword y show_all si vinieran juntos.
 
+    Reintento sin año:
+      Si la API no devuelve resultados usando el año de la carpeta, se reintenta
+      automáticamente sin año. Esto cubre casos donde el año del archivo no
+      coincide con el año del subtítulo publicado (ej: McLaren 2016 vs 2017).
+      Cuando se descarta el año se marca `year_filter_dropped` para avisarlo en
+      la UI con un badge aparte.
+
     Responde con HTML parcial para HTMX.
     """
     import time
@@ -180,6 +187,9 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
     sub_status = check_subtitle_status(folder.folder_path, video_filename)
     preferred_user = get_preferred_user()
 
+    # Indica si hubo que descartar el año de la carpeta para obtener resultados.
+    year_filter_dropped = False
+
     if free_query:
         # Búsqueda libre — independiente de título/año/tipo/resolución, sin fallback.
         results = search_free(free_query)
@@ -192,6 +202,15 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
     elif show_all:
         # Mostrar todos los resultados sin filtros
         results = get_all_results(folder.title, year=folder.year)
+        # Reintento sin año si el año de la carpeta no arrojó resultados.
+        if not results and folder.year:
+            results = get_all_results(folder.title, year="")
+            year_filter_dropped = bool(results)
+            if year_filter_dropped:
+                logger.info(
+                    "Ver todos — reintento sin año ('%s') — resultados: %d",
+                    folder.title, len(results)
+                )
         t2 = time.time()
         criteria = "all"
         logger.info("Ver todos — video: '%s' — resultados: %d", video_filename, len(results))
@@ -209,6 +228,16 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
         # Búsqueda automática inicial
         from browser.services.config import get_preferred_words
         all_results = search_subtitles(folder.title, year=folder.year)
+        # Reintento sin año si la API no encontró nada con el año de la carpeta.
+        # Cubre discrepancias de año entre el archivo y el subtítulo publicado.
+        if not all_results and folder.year:
+            all_results = search_subtitles(folder.title, year="")
+            year_filter_dropped = bool(all_results)
+            if year_filter_dropped:
+                logger.info(
+                    "Reintento sin año para '%s' — resultados: %d",
+                    folder.title, len(all_results)
+                )
         t2 = time.time()
         logger.info("TIMING search — get_folder_info: %.3fs — API call: %.3fs", t1 - t0, t2 - t1)
 
@@ -243,8 +272,8 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
                     results, criteria = [], "needs_keyword"
 
     logger.info(
-        "Búsqueda completada — video: '%s' — criterio: %s — resultados: %d",
-        video_filename, criteria, len(results)
+        "Búsqueda completada — video: '%s' — criterio: %s — resultados: %d — sin_año: %s",
+        video_filename, criteria, len(results), year_filter_dropped
     )
 
     context = {
@@ -254,6 +283,7 @@ def search_subtitles_view(request: HttpRequest, folder_name: str) -> HttpRespons
         "criteria": criteria,
         "free_query": free_query,
         "sub_status": sub_status,
+        "year_filter_dropped": year_filter_dropped,
         "criteria_labels": {
             "user+type+res+words": f"usuario preferido + {folder.release_type} + {folder.resolution} + palabras preferidas",
             "user+type+res": f"usuario preferido + {folder.release_type} + {folder.resolution}",
