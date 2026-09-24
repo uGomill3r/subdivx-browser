@@ -41,6 +41,7 @@ from browser.services.config import (
     API_PROVIDER_SUBX,
 )
 from browser.services.cf_cookie_capture import capture_state
+from browser.middleware import set_media_root_cookie
 logger = logging.getLogger(__name__)
 
 
@@ -140,8 +141,9 @@ def move_folder_view(request: HttpRequest, folder_name: str) -> HttpResponse:
 @require_http_methods(["POST"])
 def switch_media_root_view(request: HttpRequest) -> HttpResponse:
     """
-    Cambia la biblioteca activa para la sesión actual.
+    Cambia la biblioteca activa para el navegador actual.
     Solo acepta rutas presentes en media_root_options (config.json).
+    Persiste la elección en una cookie firmada (sin sesiones, sin DB).
     Devuelve JSON con el resultado; el frontend luego recarga la lista.
     """
     target = request.POST.get("media_root", "").strip()
@@ -151,9 +153,10 @@ def switch_media_root_view(request: HttpRequest) -> HttpResponse:
         logger.warning("Intento de cambiar a ruta no permitida: '%s'", target)
         return JsonResponse({"ok": False, "error": "Ruta no permitida"}, status=400)
 
-    request.session["media_root_override"] = target
-    logger.info("Biblioteca activa cambiada a '%s' (sesión)", target)
-    return JsonResponse({"ok": True, "media_root": target})
+    response = JsonResponse({"ok": True, "media_root": target})
+    set_media_root_cookie(response, target)
+    logger.info("Biblioteca activa cambiada a '%s' (cookie firmada)", target)
+    return response
 
 
 def folder_detail(request: HttpRequest, folder_name: str) -> HttpResponse:

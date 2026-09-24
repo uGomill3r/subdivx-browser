@@ -11,7 +11,6 @@ DEBUG = os.getenv("DEBUG", "True") == "True"
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
-    "django.contrib.sessions",
     "django.contrib.staticfiles",
     "browser",
 ]
@@ -20,7 +19,6 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
     "browser.middleware.MediaRootOverrideMiddleware",
 ]
 
@@ -41,14 +39,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Sin base de datos — solo filesystem y API calls
+# Sin base de datos — solo filesystem y API calls.
+# La biblioteca activa se persiste en una cookie firmada (ver browser/middleware.py),
+# no en sesiones de Django, así que no hace falta DB ni migraciones.
 DATABASES = {}
-
-# Sesiones en cookie firmada — sin base de datos configurada, el backend por
-# defecto (db) intentaría leer la tabla django_session y fallaría con 500.
-# El backend de cookie firmada no necesita DB ni migraciones; el contenido va
-# firmado con SECRET_KEY, así que no puede ser manipulado por el cliente.
-SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 
 LANGUAGE_CODE = "es-ar"
 TIME_ZONE = "America/Lima"
