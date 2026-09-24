@@ -129,8 +129,18 @@ def get_media_root_options() -> list[str]:
 
 
 def get_media_root() -> str:
-    """Retorna la ruta de media activa (config.json > settings)."""
+    """
+    Retorna la ruta de media activa.
+    Prioridad: override de sesión > config.json > settings.
+    El override de sesión solo se acepta si la ruta está en media_root_options.
+    """
+    # Import tardío para evitar dependencia circular con el middleware.
+    from browser.middleware import get_current_media_root_override
+
     config = load_config()
+    override = get_current_media_root_override()
+    if override and override in config.get("media_root_options", []):
+        return override
     return config["media_root"] or settings.MEDIA_ROOT_PATH
 
 

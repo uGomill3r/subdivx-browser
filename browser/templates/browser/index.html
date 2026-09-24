@@ -4,14 +4,44 @@
 
 {% block content %}
 
-<div class="d-flex align-items-center justify-content-between mb-3">
+<div class="d-flex align-items-center justify-content-between mb-3" style="gap:1rem; flex-wrap:wrap;">
   <h1 style="font-family:'Inter',sans-serif; font-size:1.4rem; font-weight:800; margin:0;">
     Biblioteca
   </h1>
+
+  {% if media_root_options|length > 1 %}
+    <div class="media-root-switch">
+      {% if media_root_options|length == 2 %}
+        {% for opt in media_root_options %}
+          <button
+            type="button"
+            class="media-root-btn {% if opt == current_media_root %}active{% endif %}"
+            data-root="{{ opt }}"
+            onclick="switchMediaRoot('{{ opt|escapejs }}')"
+            title="{{ opt }}"
+          >{{ opt }}</button>
+        {% endfor %}
+      {% else %}
+        <button type="button" class="media-root-btn" onclick="cycleMediaRoot(-1)" title="Biblioteca anterior">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <span class="media-root-current" id="media-root-current" title="{{ current_media_root }}">
+          {{ current_media_root }}
+        </span>
+        <button type="button" class="media-root-btn" onclick="cycleMediaRoot(1)" title="Biblioteca siguiente">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      {% endif %}
+    </div>
+  {% endif %}
 </div>
+
+{{ media_root_options|json_script:"media-root-options" }}
+<div style="display:none;">{% csrf_token %}</div>
 
 <!-- Carga la lista via HTMX al renderizar la página -->
 <div
+  id="folder-list-container"
   hx-get="{% url 'browser:folder_list' %}"
   hx-trigger="load"
   hx-indicator="#loading-folders"
@@ -21,5 +51,107 @@
     <span>Cargando biblioteca…</span>
   </div>
 </div>
+
+<style>
+  .media-root-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.2rem 0.3rem;
+    font-size: 0.78rem;
+    max-width: 340px;
+  }
+  .media-root-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    border-radius: 3px;
+    padding: 0.25rem 0.6rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .media-root-btn:hover { color: var(--accent); }
+  .media-root-btn.active {
+    color: var(--accent);
+    border-color: var(--accent-dim);
+    background: var(--surface-2);
+  }
+  .media-root-current {
+    color: var(--accent);
+    padding: 0.25rem 0.4rem;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
+
+<script>
+  const MEDIA_ROOT_OPTIONS = JSON.parse(
+    document.getElementById("media-root-options").textContent
+  );
+  let currentMediaRoot = "{{ current_media_root|escapejs }}";
+
+  function sdxCsrfToken() {
+    const el = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    return el ? el.value : "";
+  }
+
+  function sdxReloadFolderList() {
+    htmx.ajax("GET", "{% url 'browser:folder_list' %}", {
+      target: "#folder-list-container",
+      swap: "innerHTML",
+    });
+  }
+
+  function sdxUpdateMediaRootUI() {
+    document.querySelectorAll(".media-root-btn[data-root]").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.root === currentMediaRoot);
+    });
+    const label = document.getElementById("media-root-current");
+    if (label) {
+      label.textContent = currentMediaRoot;
+      label.title = currentMediaRoot;
+    }
+  }
+
+  function switchMediaRoot(target) {
+    fetch("{% url 'browser:switch_media_root' %}", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-CSRFToken": sdxCsrfToken(),
+      },
+      body: "media_root=" + encodeURIComponent(target),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.ok) {
+          console.error("Error al cambiar biblioteca:", data.error);
+          return;
+        }
+        currentMediaRoot = data.media_root;
+        sdxUpdateMediaRootUI();
+        sdxReloadFolderList();
+      })
+      .catch(e => console.error("Error de red al cambiar biblioteca:", e));
+  }
+
+  function cycleMediaRoot(delta) {
+    const idx = MEDIA_ROOT_OPTIONS.indexOf(currentMediaRoot);
+    if (idx === -1) return;
+    const nextIdx = (idx + delta + MEDIA_ROOT_OPTIONS.length) % MEDIA_ROOT_OPTIONS.length;
+    switchMediaRoot(MEDIA_ROOT_OPTIONS[nextIdx]);
+  }
+</script>
 
 {% endblock %}

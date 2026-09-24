@@ -48,9 +48,13 @@ def index(request: HttpRequest) -> HttpResponse:
     """
     Vista principal: renderiza la página vacía de inmediato.
     La lista de carpetas se carga via HTMX en un request separado.
+    Incluye el switch de biblioteca cuando hay más de una ruta configurada.
     """
     logger.info("Index cargado")
-    return render(request, "browser/index.html")
+    return render(request, "browser/index.html", {
+        "media_root_options": get_media_root_options(),
+        "current_media_root": get_media_root(),
+    })
 
 
 def _can_move_to_library() -> bool:
@@ -82,35 +86,74 @@ def move_folder_view(request: HttpRequest, folder_name: str) -> HttpResponse:
     hacia settings.MOVE_DEST_PATH (Library/Movies). Solo permitido cuando
     la media_root activa coincide con settings.MOVE_SOURCE_PATH.
 
-    Responde con HTML parcial para HTMX: en éxito, respuesta vacía (la card
-    se elimina del listado); en error, vuelve a renderizar la card con el
-    mensaje de error.
+    Responde con el parcial completo de la lista (para que HTMX lo inserte
+    en el contenedor y los contadores se recalculen). Si tras mover ya no
+    quedan carpetas en la biblioteca activa, envía HX-Redirect a "/".
     """
     if not _can_move_to_library():
         logger.warning(
             "Intento de mover carpeta '%s' con media_root distinta de MOVE_SOURCE_PATH", folder_name
         )
-        return HttpResponse(
-            "<p class='text-danger' style='font-size:0.78rem; margin:0.4rem 0 0;'>"
-            "Esta acción solo está disponible cuando la biblioteca activa es la carpeta de Descargas."
-            "</p>",
-            status=403,
-        )
+        folders = list_media_folders()
+        return render(request, "browser/partials/folder_list.html", {
+            "folders": folders,
+            "can_move": False,
+            "move_error": "Esta acción solo está disponible cuando la biblioteca activa es la carpeta de Descargas.",
+        }, status=403)
 
     folder = get_folder_info(folder_name)
     if not folder:
-        return HttpResponse("<p class='text-danger'>Carpeta no encontrada.</p>", status=404)
+        folders = list_media_folders()
+        return render(request, "browser/partials/folder_list.html", {
+            "folders": folders,
+            "can_move": True,
+            "move_error": "Carpeta no encontrada.",
+        }, status=404)
 
     ok, result = move_folder_to_library(folder)
+
     if not ok:
-        return render(request, "browser/partials/folder_card.html", {
-            "folder": folder,
+        logger.error("Fallo al mover '%s': %s", folder_name, result)
+        folders = list_media_folders()
+        return render(request, "browser/partials/folder_list.html", {
+            "folders": folders,
             "can_move": True,
-            "move_error": result,
+            "move_error": f"No se pudo mover “{folder.title}”: {result}",
         }, status=500)
 
     logger.info("Carpeta '%s' movida a Library — destino: '%s'", folder_name, result)
-    return HttpResponse("")
+
+    # Refrescar lista con lo que queda, o redirigir al inicio si ya no hay nada.
+    remaining = list_media_folders()
+    if not remaining:
+        logger.info("Sin carpetas restantes tras mover '%s' — redirigiendo a inicio", folder_name)
+        response = HttpResponse(status=204)
+        response["HX-Redirect"] = "/"
+        return response
+
+    return render(request, "browser/partials/folder_list.html", {
+        "folders": remaining,
+        "can_move": _can_move_to_library(),
+    })
+
+
+@require_http_methods(["POST"])
+def switch_media_root_view(request: HttpRequest) -> HttpResponse:
+    """
+    Cambia la biblioteca activa para la sesión actual.
+    Solo acepta rutas presentes en media_root_options (config.json).
+    Devuelve JSON con el resultado; el frontend luego recarga la lista.
+    """
+    target = request.POST.get("media_root", "").strip()
+    options = get_media_root_options()
+
+    if not target or target not in options:
+        logger.warning("Intento de cambiar a ruta no permitida: '%s'", target)
+        return JsonResponse({"ok": False, "error": "Ruta no permitida"}, status=400)
+
+    request.session["media_root_override"] = target
+    logger.info("Biblioteca activa cambiada a '%s' (sesión)", target)
+    return JsonResponse({"ok": True, "media_root": target})
 
 
 def folder_detail(request: HttpRequest, folder_name: str) -> HttpResponse:

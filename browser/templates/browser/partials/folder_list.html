@@ -5,6 +5,20 @@
   </div>
 {% else %}
 
+  {% if move_error %}
+  <div style="
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: var(--radius);
+    padding: 0.65rem 1rem;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  ">
+    <i class="bi bi-x-circle"></i> {{ move_error }}
+  </div>
+  {% endif %}
+
   <!-- Pestañas -->
   <div style="display:flex; gap:0.4rem; margin-bottom:1.25rem;">
     <button
@@ -81,8 +95,9 @@
       document.getElementById('tab-done').classList.toggle('tab-active',    tab === 'done');
     }
 
-    // Contar y mostrar badges — se recalcula también cuando htmx remueve
-    // una card del DOM (p. ej. al mover una película a Library).
+    // Recalcula los badges de conteo a partir del DOM actual.
+    // Se ejecuta en cada render del parcial (el script se re-ejecuta al
+    // insertarse via HTMX), por lo que no hace falta listener de afterSwap.
     function sdxUpdateFolderCounts() {
       const pending = document.querySelectorAll('#list-pending .folder-card').length;
       const done    = document.querySelectorAll('#list-done .folder-card').length;
@@ -92,7 +107,6 @@
       if (elDone)    elDone.textContent    = done;
     }
     sdxUpdateFolderCounts();
-    document.body.addEventListener('htmx:afterSwap', sdxUpdateFolderCounts);
   </script>
 
 {% endif %}
