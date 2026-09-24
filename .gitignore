@@ -10,3 +10,4 @@ staticfiles/
 dist/
 .DS_Store
 logs/
+config.json
