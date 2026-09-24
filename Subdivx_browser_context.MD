@@ -11,8 +11,10 @@ App Django 5.2 para buscar y descargar subtítulos desde SubDivX (vía SubX API)
 - **nginx** — proxy reverso + sirve archivos estáticos
 - **HTMX** — interactividad sin JS pesado
 - **Bootstrap 5** — UI responsiva
-- **SQLite** — no se usa, sin base de datos
+- **Sin base de datos** — solo filesystem y API calls
+- **Cookie firmada** — la biblioteca activa se guarda por navegador en una cookie firmada con `SECRET_KEY` (no se usan sesiones de Django)
 - **SubX API** — `https://subx-api.duckdns.org/api` — API no oficial de SubDivX
+- **subx-bridge** — proveedor alternativo autohospedado (opcional)
 - **rarfile** — soporte para descomprimir RAR (requiere `unrar` en el sistema)
 
 ---
@@ -60,8 +62,9 @@ sudo systemctl restart subdivx-browser
 ```
 subdivx_browser/
 ├── .env                          ← variables de entorno (no en repo)
-├── .env.example                  ← plantilla
-├── config.json                   ← config runtime (no en repo)
+├── .env.sample                   ← plantilla
+├── config.json                   ← config runtime (no en repo, ver .sample)
+├── config.json.sample            ← plantilla de config runtime
 ├── manage.py
 ├── start.sh                      ← arranque Gunicorn
 ├── requirements.txt
@@ -74,27 +77,35 @@ subdivx_browser/
 └── browser/
     ├── views.py
     ├── urls.py
+    ├── middleware.py             ← MediaRootOverrideMiddleware + cookie firmada
     ├── services/
     │   ├── config.py             ← lectura/escritura config.json, fallback a .env
     │   ├── filesystem.py         ← parseo carpetas/videos, extracción ZIP/RAR
-    │   └── subx.py               ← cliente SubX API, lógica de filtros y búsqueda
+    │   ├── subx.py               ← cliente SubX API, lógica de filtros y búsqueda
+    │   ├── subx_bridge.py        ← cliente del proveedor alternativo
+    │   ├── subtitle_types.py     ← dataclass SubtitleResult + mapeo
+    │   └── cf_cookie_capture.py  ← captura interactiva de cookie de Cloudflare
     ├── static/
     │   └── browser/
     │       └── apple-touch-icon.png  ← ícono 180x180 para iOS/iPadOS
     ├── templatetags/
     │   └── browser_extras.py     ← filtro get_item para dicts en templates
     └── templates/browser/
-        ├── base.html             ← layout, fuentes Inter+DM Mono, topbar con ⚙
-        ├── index.html            ← carga lazy via HTMX
+        ├── base.html             ← layout, fuentes Inter+DM Mono, topbar con íconos
+        ├── index.html            ← carga lazy via HTMX + switch de biblioteca
         ├── folder.html           ← pestañas por video, búsqueda automática, spinner
         ├── settings.html         ← configuración: ruta, usuario, palabras, tipos, resoluciones
         ├── error.html
+        ├── logs.html             ← visor de logs con filtro por nivel
         └── partials/
-            ├── folder_list.html  ← lista con pestañas sin/con subtítulo
-            ├── results.html      ← resultados, modal descripción, Ver todos
+            ├── folder_list.html  ← lista con pestañas sin/con subtítulo, contadores
+            ├── folder_card.html  ← tarjeta de carpeta, botón "mover a biblioteca"
+            ├── results.html      ← resultados, modal descripción, Ver todos, badge sin año
             ├── success.html      ← confirmación descarga, vuelve al inicio
             ├── select_srt.html   ← modal selección .srt en archivo comprimido
-            └── keyword_form.html ← búsqueda por keyword (AND multi-palabra)
+            ├── keyword_form.html ← búsqueda por keyword (AND multi-palabra)
+            ├── free_search_form.html ← búsqueda libre (término directo a la API)
+            └── api_test_result.html  ← resultado del test de conexión a la API
 ```
 
 ---
@@ -102,16 +113,23 @@ subdivx_browser/
 ## Variables de entorno (.env)
 ```
 SECRET_KEY=cadena-larga-y-random
-DEBUG=True
+DEBUG=False
 SUBX_API_KEY=tu_api_key
 SUBDIVX_PREFERRED_USER=TaMaBin
 MEDIA_ROOT=/mnt/HDD/Descargas
 MEDIA_EXCLUDED_FOLDERS=ZenZone
+SUBX_BRIDGE_URL=https://subxbridge.lan:8443
+SUBX_BRIDGE_API_KEY=una-clave-secreta
+SUBX_BRIDGE_DIR=/home/pi/subx-bridge
+SUBDIVX_USER_AGENT=Mozilla/5.0 ...
+MOVE_SOURCE_PATH=/mnt/HDD/Descargas
+MOVE_DEST_PATH=/mnt/HDD/Library/Movies
+REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 ```
 
 ---
 
-## config.json (no en repo, editar en la Pi)
+## config.json (no en repo, plantilla en config.json.sample)
 ```json
 {
   "media_root": "/mnt/HDD/Descargas",
@@ -131,14 +149,17 @@ MEDIA_EXCLUDED_FOLDERS=ZenZone
     {"name": "720p",  "keywords": ["720p", "720"]},
     {"name": "1080p", "keywords": ["1080p", "1080", "fhd"]},
     {"name": "2160p", "keywords": ["2160p", "2160", "4k", "uhd"]}
-  ]
+  ],
+  "api_provider": "subx",
+  "subx_bridge_url": ""
 }
 ```
 
-- `media_root_options`: lista de rutas para el select en settings. Se edita manualmente. Si está vacío muestra input libre.
+- `media_root_options`: lista de rutas para el select en settings y para el switch del index. Se edita manualmente. Si está vacío o ausente, se muestra input libre en settings y no aparece el switch.
 - `preferred_words`: chips editables desde la UI. Se aplican como filtro AND sobre usuario + tipo + resolución.
 - `release_types`: lista de objetos `{name, keywords}`. Editables desde la UI — chips con modal de keywords por tipo.
 - `resolutions`: igual que release_types. Editables desde la UI.
+- `api_provider`: `"subx"` o `"subx_bridge"`.
 - Tiene prioridad sobre `.env`. Si no existe, usa valores del `.env` y defaults de `config.py`.
 
 ---
@@ -164,8 +185,10 @@ MEDIA_EXCLUDED_FOLDERS=ZenZone
 
 ## Diseño visual
 - Tema oscuro con variables CSS en `:root`
-- `--accent: #e8c840` (dorado), `--text: #d4d8e8`, `--text-muted: #6b7294`
-- `.section-header`: color `#8899bb` (azul-gris), border-bottom `var(--accent-dim)`
+- `--accent: #e8c840` (dorado), `--text: #f2f3fa`, `--text-muted: #e7e9f5`
+- `.section-header`: color `var(--accent)`, border-bottom `var(--accent-dim)`
+- `.criteria-badge`: píldora con borde `accent-dim`, texto `accent`
+- `.criteria-badge-warn`: píldora ámbar (`#d9a441`) para el aviso de "sin filtro de año"
 
 ---
 
@@ -179,18 +202,59 @@ Título (año) [resolución opcional] [tipo opcional] ...
 - **Resolución** extraída del nombre del archivo de video (720p / 1080p / 2160p)
 - **Tipo** extraído del nombre del archivo (BluRay / WEBRip / WEB-DL / HDTV)
 - Default resolución: `1080p` / Default tipo: `BluRay`
-- Extensión soportada: `.mp4`
+- Extensiones soportadas: `.mp4`, `.mkv`
+
+---
+
+## Switch de biblioteca
+
+El index permite alternar la biblioteca activa sin pasar por Configuración, cuando `media_root_options` tiene 2+ rutas.
+
+### Flujo
+1. `index` pasa `media_root_options` y `current_media_root` al template.
+2. El template renderiza:
+   - **2 opciones** → segmented control con dos botones, la activa resaltada.
+   - **3+ opciones** → botones `◀ ▶` con la ruta activa en el medio (rotación circular).
+3. Click → `POST /switch-media-root/` con el path elegido.
+4. `switch_media_root_view` valida que el path esté en `media_root_options` (rechaza con 400 si no), setea la cookie firmada `sdx_media_root` y responde JSON.
+5. El frontend actualiza el estado visual y dispara `htmx.ajax` a `folder_list` para recargar el listado.
+
+### Persistencia: cookie firmada
+- Nombre: `sdx_media_root`. Firma con `SECRET_KEY` + salt `browser.media_root`. Duración 1 año. `HttpOnly`, `SameSite=Lax`.
+- **No se usan sesiones de Django**: el proyecto no tiene base de datos, y configurar `SESSION_ENGINE` con `signed_cookies` seguía dando 500 al guardar. La cookie firmada evita todo el framework de sesiones.
+- El valor de la cookie **no es manipulable** por el cliente (cualquier modificación invalida la firma y `get_signed_cookie` devuelve `default=None`).
+
+### Middleware
+`browser/middleware.py`:
+- `MediaRootOverrideMiddleware` lee la cookie y la expone via `thread_local` (`get_current_media_root_override()`).
+- `set_media_root_cookie(response, path)` adjunta la cookie firmada a una respuesta.
+- `config.get_media_root()` consulta el thread-local primero; solo acepta el override si el path está en `media_root_options` (defensa adicional).
+
+### Prioridad de `get_media_root()`
+1. Override de cookie (si el path está en `media_root_options`)
+2. `config.json` → `media_root`
+3. `settings.MEDIA_ROOT_PATH` (env)
 
 ---
 
 ## Cascada de búsqueda de subtítulos
 
-La búsqueda envía `title` **y** `year` como parámetros separados a la API SubX (confirmado que filtra correctamente).
+La búsqueda envía `title` **y** `year` como parámetros separados a la API SubX.
+
+### Reintento sin año
+Si la búsqueda con `(title, year)` no devuelve resultados y la carpeta tiene año, se reintenta automáticamente con `(title, "")`. Cubre casos donde el año del archivo no coincide con el año del subtítulo publicado (ej: `McLaren (2016)` en la carpeta vs. `McLaren (2017)` en Subdivx). Cuando se descarta el año, se setea `year_filter_dropped = True` y se muestra un badge ámbar al lado del criterio en `results.html`.
+
+Se aplica en **dos lugares** de `search_subtitles_view`:
+- Búsqueda automática inicial (rama `else`)
+- Ver todos (`show_all=1`)
+
+No se aplica en la rama `keyword` (`search_with_fallback` sigue pasando `year` a la API).
 
 ### Búsqueda inicial automática (sin keyword):
-1. Usuario preferido + tipo + resolución + preferred_words (AND, todas las condiciones)
-2. Si no hay resultados → tipo + resolución sin usuario (automático, muestra aviso en UI con criterio `no_user+type+res`)
-3. Si tampoco hay resultados → muestra formulario keyword + botón "Ver todos"
+1. `search_subtitles(title, year)` → si vacío y hay año, `search_subtitles(title, "")` (marca `year_filter_dropped`)
+2. Usuario preferido + tipo + resolución + preferred_words (AND, todas las condiciones)
+3. Si no hay resultados → tipo + resolución sin usuario (automático, muestra aviso en UI con criterio `no_user+type+res`)
+4. Si tampoco hay resultados → muestra formulario keyword + "Ver todos" + "+ Búsqueda libre"
 
 ### Con keyword manual:
 - Busca en todos los resultados de la API (AND entre palabras)
@@ -198,6 +262,12 @@ La búsqueda envía `title` **y** `year` como parámetros separados a la API Sub
 
 ### Ver todos:
 - Disponible siempre, salta toda la cascada, muestra los 20 resultados de la API
+- Aplica el mismo reintento sin año que la búsqueda automática
+
+### Búsqueda libre:
+- Disponible en el pie de resultados como "+ Búsqueda libre"
+- **También se muestra directamente cuando `criteria == "none"`** (la API no devolvió nada ni siquiera sin año) — antes solo se mostraba en `free_none`
+- Es nueva e independiente: las palabras ingresadas van directo a la API como término de búsqueda, sin usar título/año/tipo/resolución/usuario del video
 
 ### Criterios reportados en UI (`criteria`):
 | Valor | Descripción |
@@ -208,8 +278,12 @@ La búsqueda envía `title` **y** `year` como parámetros separados a la API Sub
 | `type+res` | tipo + resolución (sin usuario configurado) |
 | `keyword` | búsqueda por keyword manual |
 | `all` | todos los disponibles |
-| `none` | sin resultados en la API |
-| `needs_keyword` | sin resultados — pide keyword |
+| `none` | sin resultados en la API (ni siquiera sin año) |
+| `needs_keyword` | sin resultados del usuario preferido — pide keyword |
+| `free` | búsqueda libre con resultados |
+| `free_none` | búsqueda libre sin resultados |
+
+Además, `year_filter_dropped` es una bandera independiente del criterio: indica que el año se descartó para obtener resultados.
 
 ---
 
@@ -245,8 +319,20 @@ Flujo:
 3. Si comprimido con **múltiples srt** → modal de selección (`select_srt.html`)
 4. Si selección: extrae el elegido
 5. Renombrar `video.srt` → `video.en.srt` si existe
-6. Limpiar carpeta (conserva `.mp4`, `.srt`, carpetas `subtitle/subtitles`)
+6. Limpiar carpeta (conserva `.mp4`/`.mkv`, `.srt`, carpetas `subtitle/subtitles`)
 7. Guardar como `video.es.srt`
+
+---
+
+## Mover a biblioteca
+
+`move_folder_view` (POST) mueve la carpeta entera desde `MOVE_SOURCE_PATH` hacia `MOVE_DEST_PATH`.
+
+- **Guard**: solo permite la operación si `get_media_root()` normalizado == `MOVE_SOURCE_PATH` normalizado.
+- **Botón**: `folder_card.html` lo muestra solo si `can_move` es `True`. Apunta a `#folder-list-container` con `hx-target` + `hx-swap="innerHTML"`.
+- **Éxito con carpetas restantes**: se renderiza `folder_list.html` completo con la lista actualizada. Los contadores de las pestañas "Sin subtítulo"/"Con subtítulo" se recalculan solos al re-ejecutarse el `<script>` inline del parcial.
+- **Éxito sin carpetas restantes**: respuesta `204` con header `HX-Redirect: /` → el navegador redirige al inicio (evita quedar en una vista vacía).
+- **Error**: se renderiza `folder_list.html` con `move_error` seteado, que muestra un banner rojo arriba de las pestañas.
 
 ---
 
@@ -343,11 +429,23 @@ Después de pruebas exhaustivas se confirmó que con HTTPS + `pibox.lan` el íco
 
 ## settings.py — configuración relevante
 ```python
+INSTALLED_APPS = ["django.contrib.staticfiles", "browser"]
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "browser.middleware.MediaRootOverrideMiddleware",
+]
+DATABASES = {}   # sin base de datos
 STATICFILES_DIRS = [BASE_DIR / "browser" / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATIC_URL = "/static/"
-VIDEO_EXTENSIONS = [".mp4"]
+VIDEO_EXTENSIONS = [".mp4", ".mkv"]
 ```
+
+Notas:
+- No se incluye `django.contrib.sessions` ni `SessionMiddleware` — la biblioteca activa va por cookie firmada, no por sesiones.
+- `MediaRootOverrideMiddleware` va **después** de `SessionMiddleware` si algún día se agrega (hoy no aplica).
 
 ---
 
@@ -357,7 +455,31 @@ Los siguientes archivos existen en `browser/static/browser/` pero no se referenc
 
 ---
 
-## Bugs corregidos en esta sesión
+## Cambios recientes
+
+### Reintento sin año en búsqueda de subtítulos
+- `views.py`: si `search_subtitles(title, year)` devuelve vacío y la carpeta tiene año, reintenta con `year=""`. Aplica en búsqueda automática y en "Ver todos". Bandera `year_filter_dropped` en contexto.
+- `results.html`: badge ámbar `.criteria-badge-warn` al lado del criterio cuando `year_filter_dropped`. La búsqueda libre se muestra también en `criteria == "none"`.
+
+### Refresco de lista al mover carpeta
+- `move_folder_view`: en éxito devuelve el parcial completo `folder_list.html` (o `HX-Redirect: /` si no quedan carpetas). En error, el parcial con `move_error`.
+- `folder_card.html`: el botón "mover" apunta a `#folder-list-container` con `hx-swap="innerHTML"`.
+- `folder_list.html`: los contadores se recalculan solos al re-ejecutarse el `<script>` inline (no depende de un listener `htmx:afterSwap`).
+
+### Switch de biblioteca
+- `browser/middleware.py` (nuevo): `MediaRootOverrideMiddleware` + `set_media_root_cookie` + `get_current_media_root_override`.
+- `config.get_media_root()`: prioridad cookie > config.json > settings.
+- `switch_media_root_view` (nuevo POST): valida contra `media_root_options` y setea cookie firmada.
+- `index.html`: segmented control (2 opciones) o flechas prev/next (3+), con nombre corto del path.
+
+### config.json fuera del repo
+- `.gitignore`: `config.json` ignorado.
+- `config.json.sample`: plantilla nueva.
+- `.env.sample`: plantilla nueva con todas las variables.
+
+---
+
+## Bugs corregidos en sesiones anteriores
 - `filesystem.py`: `_RESOLUTION_PATTERN` y `_TYPE_PATTERN` usaban comillas simples en raw strings haciendo que `\b` se interpretara como backspace (`\x08`). Los patrones nunca matcheaban — resolución y tipo siempre caían al default.
 - `views.py` (`download_and_save`): `rename_plain_srt_to_english` y `clean_folder` se llamaban dos veces consecutivas.
 - `settings.html`: `onclick="addWord()"` → `addChip('word')` tras unificar el script JS.
@@ -367,7 +489,13 @@ Los siguientes archivos existen en `browser/static/browser/` pero no se referenc
 ---
 
 ## Pendientes / mejoras posibles
-- Soporte para más extensiones de video (.mkv, .avi)
 - Caché de resultados SubX API por título+año (evitar ~2s en cada entrada a carpeta)
 - Botón "Actualizar biblioteca" para invalidar caché manualmente
 - Indicador visual de subtítulo `.en.srt` en la lista de carpetas
+- Aplicar el reintento sin año también en `search_with_fallback` (rama keyword)
+- Extender la captura manual de cookie de Cloudflare a otros proveedores (hoy solo subx-bridge)
+
+### Completados
+- ~~Soporte para más extensiones de video (.mkv, .avi)~~ → `.mkv` soportado; `.avi` no
+- ~~Refresco de contadores al mover carpeta~~ → resuelto con re-render del parcial
+- ~~Switch de biblioteca desde el index~~ → resuelto con cookie firmada
