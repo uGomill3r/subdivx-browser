@@ -63,6 +63,9 @@ MOVE_DEST_PATH=/mnt/HDD/Library/Movies
 # ── Opcionales — CA bundle para que requests confíe en subx-bridge ─────────
 # (ver sección subx-bridge → paso 3)
 REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+# ── Opcionales — sección Series (ver "Series (renombrado de archivos)") ────
+SERIES_ROOT=/ruta/a/tu/biblioteca/de/series
 ```
 
 El proveedor de API activo (SubX o subx-bridge) se elige en la vista de **Configuración** y se guarda en `config.json`. Si elegís subx-bridge, la URL de tu instancia también se puede editar ahí; la API key siempre se toma de la variable de entorno `SUBX_BRIDGE_API_KEY`.
@@ -295,6 +298,22 @@ Cuando `media_root_options` en `config.json` tiene 2 o más rutas, el index mues
 - Si la cookie se borra o vence, la app cae al `media_root` de `config.json`.
 - El servidor solo acepta rutas que estén en `media_root_options` (no se puede forzar por POST una ruta arbitraria).
 - Al cambiar, la lista se recarga automáticamente via HTMX, sin recargar la página.
+
+## Series (renombrado de archivos)
+
+Sección independiente de Películas — no comparten carpetas ni flujo, se navega a una u otra desde el selector "Películas / Series" en la barra superior.
+
+Reemplaza a la app media-renamer (ahora descontinuada): permite explorar libremente el árbol de carpetas bajo `SERIES_ROOT` (a diferencia de Películas, acá no se asume la estructura "Título (año)") y renombrar videos/subtítulos por posición.
+
+- **Explorador de carpetas**: árbol expandible a la izquierda; al hacer clic en una carpeta se listan sus videos y subtítulos en pestañas a la derecha.
+- **Reordenar con drag & drop**: cada video y cada subtítulo se puede arrastrar dentro de su lista para ajustar el orden antes de renombrar (útil cuando el orden alfabético no coincide, por ejemplo con episodios de dos dígitos mezclados con uno).
+- **Renombrar subtítulos**: cada subtítulo pasa a llamarse como el video en su misma posición, agregando el sufijo `.es` antes de la extensión (`Episodio.01.mkv` + subtítulo en la 1° posición → `Episodio.01.es.srt`).
+- **Renombrar videos**: mismo criterio, pero al revés — el video toma el nombre del subtítulo en su posición, conservando la extensión del video.
+- Extensiones de subtítulo soportadas: `.srt`, `.ass`, `.vtt`, `.sub` (configurable en `SERIES_SUBTITLE_EXTENSIONS`, `series/services/renamer.py`). Videos: las mismas `VIDEO_EXTENSIONS` que usa Películas (`.mp4`, `.mkv`).
+- El renombrado falla (sin tocar archivos) si la cantidad de videos y subtítulos no coincide.
+- Todas las rutas se validan contra `SERIES_ROOT`: no se puede operar fuera de esa carpeta ni por path traversal en los endpoints JSON.
+
+**Fuera de alcance por ahora:** búsqueda automática de subtítulos vía SubDivX/subx-bridge para series (como sí existe para Películas). Queda planteado como una fase posterior.
 
 ## Panel de logs en la app
 

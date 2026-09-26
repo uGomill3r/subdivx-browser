@@ -105,6 +105,33 @@
     }
     .topbar-brand span { color: var(--text-muted); font-weight: 400; }
 
+    /* Selector de sección: Películas / Series — no se mezclan, se navega a una u otra */
+    .topbar-sections {
+      display: flex;
+      gap: 0.4rem;
+      margin-left: 1rem;
+    }
+    .topbar-section-link {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 0.35rem 0.8rem;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .topbar-section-link:hover { color: var(--text); }
+    .topbar-section-link.active {
+      color: var(--accent);
+      border-color: var(--accent-dim);
+    }
+    @media (max-width: 560px) {
+      .topbar-sections { margin-left: 0.5rem; }
+      .topbar-section-link { padding: 0.3rem 0.55rem; font-size: 0.75rem; }
+    }
+
     /* Contenido */
     .main-content {
       max-width: 960px;
@@ -402,6 +429,10 @@
     <a href="{% url 'browser:index' %}" class="topbar-brand">
       SUBDIVX <span>/ browser</span>
     </a>
+    <div class="topbar-sections">
+      <a href="{% url 'browser:index' %}" class="topbar-section-link{% if request.resolver_match.namespace == 'browser' %} active{% endif %}">Películas</a>
+      <a href="{% url 'series:index' %}" class="topbar-section-link{% if request.resolver_match.namespace == 'series' %} active{% endif %}">Series</a>
+    </div>
     <div class="topbar-icons">
       <a href="{% url 'browser:logs' %}" class="topbar-settings" title="Logs">
         <i class="bi bi-journal-text"></i>
