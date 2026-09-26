@@ -13,6 +13,7 @@ ALLOWED_HOSTS = ["*"]
 INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "browser",
+    "series",
 ]
 
 MIDDLEWARE = [
@@ -87,6 +88,16 @@ MOVE_SOURCE_PATH = os.getenv("MOVE_SOURCE_PATH", "/mnt/HDD/Descargas")
 MOVE_DEST_PATH = os.getenv("MOVE_DEST_PATH", "/mnt/HDD/Library/Movies")
 
 VIDEO_EXTENSIONS = [".mp4", ".mkv"]
+
+# ── Sección Series (independiente de Películas — no comparten carpetas) ────
+# Raíz de la biblioteca de series. A diferencia de MEDIA_ROOT_PATH (que solo
+# lista carpetas "Título (año)"), acá se navega libremente el árbol de
+# carpetas (Serie/Temporada N/...), como en el media-renamer original.
+SERIES_ROOT = os.getenv("SERIES_ROOT", "/media/series")
+
+# Extensiones de subtítulo soportadas en Series. En Películas la app solo
+# maneja .srt de forma explícita, así que esto queda separado a propósito.
+SERIES_SUBTITLE_EXTENSIONS = [".srt", ".ass", ".vtt", ".sub"]
 
 # Carpetas a excluir del escaneo (separadas por coma en .env)
 _excluded = os.getenv("MEDIA_EXCLUDED_FOLDERS", "")
