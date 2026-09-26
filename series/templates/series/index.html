@@ -1,0 +1,163 @@
+{% extends "browser/base.html" %}
+{% load static %}
+
+{% block title %}Series — SubDivX Browser{% endblock %}
+
+{% block content %}
+<div class="breadcrumb-dark">
+  <a href="{% url 'browser:index' %}">← Películas</a>
+</div>
+
+<div class="section-header">SERIES — RENOMBRAR ARCHIVOS</div>
+
+<div id="series-status" class="series-status hidden"></div>
+
+<div class="series-layout">
+
+  <!-- Columna izquierda: árbol de carpetas -->
+  <div class="series-panel">
+    <div class="series-panel-header">
+      <span>Carpeta seleccionada</span>
+      <button type="button" id="series-refresh" class="btn-outline series-icon-btn" title="Refrescar">
+        <i class="bi bi-arrow-clockwise"></i>
+      </button>
+    </div>
+    <input type="text" id="series-selected-path" class="input-dark series-path-input" readonly>
+    <ul id="series-tree" class="series-tree">
+      <li class="series-muted">Cargando…</li>
+    </ul>
+  </div>
+
+  <!-- Columna derecha: tabs de videos / subtítulos -->
+  <div class="series-panel">
+    <div class="series-tabs" id="series-tabs">
+      <button type="button" class="series-tab active" data-tab="videos">Videos</button>
+      <button type="button" class="series-tab" data-tab="subtitles">Subtítulos</button>
+    </div>
+
+    <div class="series-tab-content" id="series-tab-videos">
+      <div id="series-video-list"></div>
+    </div>
+    <div class="series-tab-content hidden" id="series-tab-subtitles">
+      <div id="series-subtitle-list"></div>
+    </div>
+
+    <div id="series-no-files" class="series-muted hidden">No se encontraron archivos en esta carpeta.</div>
+
+    <div class="series-actions">
+      <button type="button" id="series-rename-subs" class="btn-accent">Renombrar subtítulos</button>
+      <button type="button" id="series-rename-videos" class="btn-outline">Renombrar videos</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Contenedor de config: URLs de la API + path inicial, leídos por main.js -->
+<div id="series-app"
+     data-api-folders="{% url 'series:list_folders' %}"
+     data-api-files="{% url 'series:list_files' %}"
+     data-api-rename="{% url 'series:rename_files' %}"
+     data-initial-path="{{ series_root }}"
+     style="display:none;">
+  {% csrf_token %}
+</div>
+
+<style>
+  .series-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 720px) {
+    .series-layout { grid-template-columns: 1fr; }
+  }
+  .series-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+  }
+  .series-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+  .series-icon-btn { padding: 0.2rem 0.5rem; }
+  .series-path-input { margin-bottom: 0.75rem; }
+  .series-tree {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+  .series-tree ul { list-style: none; margin: 0; padding-left: 1rem; }
+  .series-tree li { margin: 0.15rem 0; }
+  .series-folder-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.3rem;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .series-folder-row:hover { background: var(--surface-2); }
+  .series-folder-row.selected { background: var(--surface-2); border: 1px solid var(--accent-dim); }
+  .series-folder-toggle { color: var(--text-muted); cursor: pointer; transition: transform 0.15s; width: 1rem; text-align: center; }
+  .series-folder-toggle.expanded { transform: rotate(90deg); }
+  .series-muted { color: var(--text-muted); font-style: italic; font-size: 0.85rem; padding: 0.3rem; }
+  .series-error { color: var(--danger); font-size: 0.85rem; padding: 0.3rem; }
+
+  .series-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 0.75rem; }
+  .series-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    padding: 0.5rem;
+    cursor: pointer;
+  }
+  .series-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .series-tab-content { max-height: 360px; overflow-y: auto; }
+  .series-tab-content.hidden { display: none; }
+
+  .series-file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.45rem 0.6rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.82rem;
+  }
+  .series-drag-handle { color: var(--text-muted); cursor: grab; }
+  .series-file-index { color: var(--text-muted); width: 1.5rem; flex-shrink: 0; }
+  .series-file-name { flex-grow: 1; word-break: break-all; }
+  .series-sortable-ghost { opacity: 0.4; background: var(--surface); }
+
+  .series-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+  .series-actions button { flex: 1; }
+
+  .series-status {
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+  .series-status.ok { border: 1px solid var(--success); color: var(--success); }
+  .series-status.error { border: 1px solid var(--danger); color: var(--danger); }
+  .series-status.hidden { display: none; }
+</style>
+
+<!-- SortableJS: reordenar videos/subtítulos con drag & drop -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<script src="{% static 'series/main.js' %}"></script>
+{% endblock %}
