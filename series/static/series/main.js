@@ -157,6 +157,19 @@
     }
   }
 
+  // Prioriza packs de temporada completa (S01) sobre episodios sueltos (S01E01)
+  // al ordenar los resultados de búsqueda.
+  function seasonPackRank(title) {
+    const text = title || "";
+    if (/S\d{1,2}E\d{1,2}/i.test(text)) return 1; // episodio suelto
+    if (/S\d{1,2}\b/i.test(text)) return 0; // pack de temporada
+    return 2; // no matchea ningún patrón conocido
+  }
+
+  function sortSearchResults(results) {
+    return [...results].sort((a, b) => seasonPackRank(a.title) - seasonPackRank(b.title));
+  }
+
   function renderSearchResults(results, path) {
     searchResultsDiv.innerHTML = "";
 
@@ -168,7 +181,7 @@
       return;
     }
 
-    results.forEach((item) => {
+    sortSearchResults(results).forEach((item) => {
       const subtitleId = item.id !== undefined ? item.id : item.subtitle_id;
 
       const card = document.createElement("div");
