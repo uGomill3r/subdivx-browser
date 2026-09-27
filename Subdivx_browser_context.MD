@@ -3,6 +3,10 @@
 ## Descripción
 App Django 5.2 para buscar y descargar subtítulos desde SubDivX (vía SubX API) en una Raspberry Pi. Acceso desde red local via navegador web con diseño responsivo.
 
+Dos secciones independientes (no se mezclan, se navega a una u otra desde el topbar):
+- **Películas** (app `browser`): flujo original, carpetas `Título (año)`, búsqueda automática con cascada de filtros (usuario/tipo/resolución), un video ↔ un subtítulo `.es.srt`.
+- **Series** (app `series`): agregada para reemplazar a la app externa **media-renamer** (ahora descontinuada). Explorador de árbol de carpetas libre (sin asumir estructura de nombre), renombrado de videos/subtítulos por posición con drag&drop, y búsqueda/descarga de subtítulos vía la API de SubDivX adaptada a packs de temporada completos.
+
 ---
 
 ## Stack técnico
@@ -91,7 +95,7 @@ subdivx_browser/
     ├── templatetags/
     │   └── browser_extras.py     ← filtro get_item para dicts en templates
     └── templates/browser/
-        ├── base.html             ← layout, fuentes Inter+DM Mono, topbar con íconos
+        ├── base.html             ← layout, fuentes Inter+DM Mono, topbar con selector Películas/Series
         ├── index.html            ← carga lazy via HTMX + switch de biblioteca
         ├── folder.html           ← pestañas por video, búsqueda automática, spinner
         ├── settings.html         ← configuración: ruta, usuario, palabras, tipos, resoluciones
@@ -106,6 +110,19 @@ subdivx_browser/
             ├── keyword_form.html ← búsqueda por keyword (AND multi-palabra)
             ├── free_search_form.html ← búsqueda libre (término directo a la API)
             └── api_test_result.html  ← resultado del test de conexión a la API
+
+series/                            ← sección Series (independiente de browser/, no comparte carpetas)
+├── views.py                       ← index (shell) + endpoints JSON
+├── urls.py                        ← namespace "series"
+├── services/
+│   ├── renamer.py                 ← list_subfolders, list_files_in_path, rename_files,
+│   │                                 resolve_safe_path (valida contra SERIES_ROOT)
+│   └── subtitles.py                ← búsqueda/descarga de subtítulos (API directa de SubDivX,
+│                                      nunca subx-bridge) + extract_all_subtitles (packs ZIP/RAR)
+├── static/series/
+│   └── main.js                    ← árbol de carpetas, drag&drop (SortableJS CDN), fetch a la API
+└── templates/series/
+    └── index.html                 ← extends "browser/base.html" — árbol + tabs Videos/Subtítulos
 ```
 
 ---
@@ -125,6 +142,7 @@ SUBDIVX_USER_AGENT=Mozilla/5.0 ...
 MOVE_SOURCE_PATH=/mnt/HDD/Descargas
 MOVE_DEST_PATH=/mnt/HDD/Library/Movies
 REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+SERIES_ROOT=/mnt/HDD/Library/Series
 ```
 
 ---
@@ -237,7 +255,54 @@ El index permite alternar la biblioteca activa sin pasar por Configuración, cua
 
 ---
 
-## Cascada de búsqueda de subtítulos
+## Sección Series
+
+Reemplaza a la app externa **media-renamer** (descontinuada), absorbida como la app Django `series`. No comparte código de parseo de carpetas con Películas — la estructura de carpetas de series es libre (`Serie/Temporada N/...`), no `Título (año)`.
+
+### Explorador y renombrado (`series/services/renamer.py`)
+- `resolve_safe_path(path)`: resuelve a ruta absoluta y valida que quede dentro de `SERIES_ROOT` (rechaza path traversal). La usan todas las demás funciones del módulo y también `subtitle_download_view`.
+- `list_subfolders(path)` / `list_files_in_path(path)`: alimentan el árbol y las listas de video/subtítulo del explorador (endpoints `api/folders/` y `api/files/`).
+- `rename_files(action, path, video_files, sub_files)`: renombra por posición.
+  - `rename_subtitles`: cada subtítulo → `{nombre_del_video}.es{ext_original_del_sub}`.
+  - `rename_videos`: cada video → `{nombre_del_subtítulo}{ext_original_del_video}`.
+  - Falla (sin tocar disco) si las cantidades no coinciden o si la lista está vacía.
+
+### Búsqueda y descarga de subtítulos (`series/services/subtitles.py`)
+- **Siempre usa la API directa de SubDivX** (`SUBX_BASE_URL`, importado de `browser.services.subx`) — a propósito **no** respeta `get_api_provider()`/subx-bridge, aunque ese sea el proveedor activo configurado para Películas. Reusa de `browser.services.subx` solo lo genérico: `SUBX_BASE_URL` y `filter_by_keyword`; de `browser.services.subtitle_types` reusa `SubtitleResult`/`to_subtitle_results`.
+- `build_search_title(path)`: arma un título sugerido detectando la temporada en el nombre de la carpeta seleccionada (patrones `season/temporada/temp N` o `S0N`) y usando el nombre de la carpeta **padre** como nombre de serie → ej. `.../Breaking Bad/Season 01` → `"Breaking Bad S01"`. Si no detecta temporada, devuelve el nombre de carpeta limpiado (puntos/guiones bajos → espacios). Es solo un punto de partida — pensado para mostrarse editable en la UI antes de buscar (ver "Pendientes").
+- `search(title, keyword="", free_query="")`: sin la cascada de Películas (no hay tipo/resolución para packs de temporada).
+  - `free_query` → búsqueda nueva e independiente, ignora `title`.
+  - `keyword` (con `title`) → filtra resultados de `title`; si el filtro no deja nada, devuelve todos los de `title` sin filtrar.
+  - Solo `title` → resultados de la API tal cual.
+- `extract_all_subtitles(content, dest_folder)`: a diferencia de Películas (que extrae **un** `.srt` elegido por el usuario), acá se asume que el archivo descargado es el **pack completo de la temporada** y se extraen **todos** los archivos con extensión en `SERIES_SUBTITLE_EXTENSIONS` (no solo `.srt`), aplanando cualquier subcarpeta interna del ZIP/RAR directo en `dest_folder`. Si el contenido descargado no es un comprimido reconocido, se guarda tal cual como un único archivo (`subtitulo_descargado.srt`). Sobrescribe por nombre si ya existe, logueando WARNING — no hay merge ni backup automático. Después de extraer, el usuario ordena/renombra con el explorador existente (drag&drop + rename_files) — no hay matching automático video↔subtítulo para series.
+
+### Endpoints (`series/urls.py`, namespace `series`)
+| Método | Ruta | Vista | Uso |
+|---|---|---|---|
+| GET | `/series/` | `index` | Shell HTML del explorador |
+| GET | `/series/api/folders/?path=` | `list_folders_view` | Subcarpetas de `path` |
+| GET | `/series/api/files/?path=` | `list_files_view` | Videos/subtítulos de `path` |
+| POST | `/series/api/rename/` | `rename_files_view` | Body JSON `{action, path, video_files, sub_files}` |
+| GET | `/series/api/suggest-title/?path=` | `suggest_title_view` | Título sugerido para la búsqueda |
+| GET | `/series/api/subtitle-search/?title=&keyword=&free_query=` | `subtitle_search_view` | Busca en la API de SubDivX |
+| POST | `/series/api/subtitle-download/` | `subtitle_download_view` | Body JSON `{subtitle_id, path}` — descarga y extrae en `path` |
+
+### Frontend (`series/templates/series/index.html` + `series/static/series/main.js`)
+- **No usa HTMX** (a diferencia de Películas) — vanilla JS + fetch contra los endpoints JSON de arriba, siguiendo el patrón del media-renamer original.
+- Config pasada del template al JS vía atributos `data-*` en `#series-app` (no `json_script`): `data-api-folders`, `data-api-files`, `data-api-rename`, `data-initial-path`.
+- CSRF: token en un `{% csrf_token %}` dentro de `#series-app`, leído en JS y enviado como header `X-CSRFToken` en los POST — mismo patrón que usa `browser/templates/browser/index.html`.
+- Árbol de carpetas expandible (no drill-down de una sola carpeta) — cada nodo carga sus hijos on-demand al expandir.
+- Reorder de videos/subtítulos con **SortableJS** (CDN, pineado en `1.15.2`, `cdnjs.cloudflare.com`) — no se agregó como dependencia global del proyecto, solo se carga en `series/templates/series/index.html`.
+- Tabs Videos/Subtítulos: toggle manual en JS (el proyecto no carga el bundle JS de Bootstrap, solo su CSS).
+- **Pendiente (no implementado todavía)**: el panel de búsqueda/descarga de subtítulos (título sugerido editable, input de keyword, lista de resultados, botón "Descargar") no está conectado a la UI — el backend (`suggest_title_view`, `subtitle_search_view`, `subtitle_download_view`) ya funciona y se puede probar directo contra los endpoints, pero falta el HTML+JS que los use desde `index.html`/`main.js`.
+
+### Selector de sección en el topbar (`browser/templates/browser/base.html`)
+- Dos links `.topbar-section-link` ("Películas" / "Series") junto al brand, resaltando el activo vía `request.resolver_match.namespace` (requiere el context processor `django.template.context_processors.request`, ya configurado).
+- Películas queda sin cambios funcionales — solo se le agregó el selector visual.
+
+---
+
+
 
 La búsqueda envía `title` **y** `year` como parámetros separados a la API SubX.
 
@@ -429,7 +494,7 @@ Después de pruebas exhaustivas se confirmó que con HTTPS + `pibox.lan` el íco
 
 ## settings.py — configuración relevante
 ```python
-INSTALLED_APPS = ["django.contrib.staticfiles", "browser"]
+INSTALLED_APPS = ["django.contrib.staticfiles", "browser", "series"]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -441,11 +506,14 @@ STATICFILES_DIRS = [BASE_DIR / "browser" / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATIC_URL = "/static/"
 VIDEO_EXTENSIONS = [".mp4", ".mkv"]
+SERIES_ROOT = os.getenv("SERIES_ROOT", "/media/series")
+SERIES_SUBTITLE_EXTENSIONS = [".srt", ".ass", ".vtt", ".sub"]
 ```
 
 Notas:
-- No se incluye `django.contrib.sessions` ni `SessionMiddleware` — la biblioteca activa va por cookie firmada, no por sesiones.
+- No se incluye `django.contrib.sessions` ni `SessionMiddleware` — la biblioteca activa va por cookie firmada, no por sesiones. Tampoco hay `CsrfViewMiddleware` en la lista, pero el proyecto igual usa `{% csrf_token %}` + header `X-CSRFToken` por convención (ver `series/static/series/main.js`).
 - `MediaRootOverrideMiddleware` va **después** de `SessionMiddleware` si algún día se agrega (hoy no aplica).
+- `STATICFILES_DIRS` solo apunta a `browser/static` — los estáticos de `series/static/series/` los encuentra el `AppDirectoriesFinder` por defecto de Django (no hace falta agregar `series` a `STATICFILES_DIRS`), pero sí hace falta correr `collectstatic` de nuevo después de agregar la app (ver "Bugs corregidos").
 
 ---
 
@@ -485,6 +553,7 @@ Los siguientes archivos existen en `browser/static/browser/` pero no se referenc
 - `settings.html`: `onclick="addWord()"` → `addChip('word')` tras unificar el script JS.
 - `settings.html`: comillas en `onclick="removeChip()"` mal escapadas generaban `removeChip(,0)`.
 - `settings.html`: separador `\n` en atributos `value=""` normalizado a espacio por el browser (HTML5). Cambiado a coma para `preferred_words`; JSON para `release_types` y `resolutions`.
+- **Sección Series stuck en "Cargando…" tras el deploy inicial**: la página renderizaba (`views — Acceso a sección Series` en el log) pero nunca se veía ninguna llamada a `list_folders_view` — `main.js` nunca se ejecutó porque `staticfiles/series/main.js` no existía todavía en `STATIC_ROOT` (nginx sirve `/static/` directo desde ahí en producción, no dinámicamente). Fix: correr `python manage.py collectstatic --noinput` de nuevo después de agregar la app `series` — no requiere reiniciar el servicio, solo Ctrl+Shift+R en el navegador si quedó cacheado el 404.
 
 ---
 
@@ -494,8 +563,14 @@ Los siguientes archivos existen en `browser/static/browser/` pero no se referenc
 - Indicador visual de subtítulo `.en.srt` en la lista de carpetas
 - Aplicar el reintento sin año también en `search_with_fallback` (rama keyword)
 - Extender la captura manual de cookie de Cloudflare a otros proveedores (hoy solo subx-bridge)
+- **Series — falta conectar el panel de búsqueda/descarga de subtítulos a la UI**: backend completo y probado (`suggest_title_view`, `subtitle_search_view`, `subtitle_download_view`), falta agregar en `series/templates/series/index.html` + `series/static/series/main.js` el HTML/JS que:
+  1. Al seleccionar una carpeta, pide el título sugerido (`api/suggest-title/`) y lo muestra en un input editable.
+  2. Dispara la búsqueda (`api/subtitle-search/`) con ese título (+ keyword/free_query opcionales) y renderiza los resultados (título, uploader, descargas — mismos campos que `SubtitleResult`).
+  3. Al elegir un resultado, llama a `api/subtitle-download/` con `{subtitle_id, path}` y, al terminar, refresca el listado de archivos de la carpeta (mismo `fetchAndDisplayFiles` que ya existe) para que los subtítulos extraídos aparezcan listos para reordenar/renombrar.
+- Series — revisar si `build_search_title()` necesita más patrones de temporada según las convenciones reales de nombres de carpeta que se usen (hoy: `season/temporada/temp N` y `SN`).
 
 ### Completados
 - ~~Soporte para más extensiones de video (.mkv, .avi)~~ → `.mkv` soportado; `.avi` no
 - ~~Refresco de contadores al mover carpeta~~ → resuelto con re-render del parcial
+- ~~Integrar media-renamer como sección Series~~ → app `series` con explorador, drag&drop y rename por posición funcionando; búsqueda/descarga de subtítulos con backend listo, UI pendiente (ver arriba)
 - ~~Switch de biblioteca desde el index~~ → resuelto con cookie firmada

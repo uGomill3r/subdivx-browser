@@ -313,7 +313,7 @@ Reemplaza a la app media-renamer (ahora descontinuada): permite explorar libreme
 - El renombrado falla (sin tocar archivos) si la cantidad de videos y subtítulos no coincide.
 - Todas las rutas se validan contra `SERIES_ROOT`: no se puede operar fuera de esa carpeta ni por path traversal en los endpoints JSON.
 
-**Fuera de alcance por ahora:** búsqueda automática de subtítulos vía SubDivX/subx-bridge para series (como sí existe para Películas). Queda planteado como una fase posterior.
+**Búsqueda y descarga de subtítulos** (en progreso): la app ya puede buscar y descargar subtítulos para series contra la API de SubDivX (siempre la API directa, no subx-bridge, independientemente de lo configurado para Películas), pensado para packs de temporada completos: al descargar, si el archivo es un ZIP/RAR se extraen **todos** los subtítulos en la misma carpeta (no solo uno como en Películas), quedando listos para reordenar y renombrar con el flujo de arriba. El backend ya funciona; **falta conectarlo a la interfaz** (buscador visible en pantalla) — por ahora solo es accesible vía los endpoints JSON.
 
 ## Panel de logs en la app
 
