@@ -4,6 +4,7 @@ import re
 import zipfile
 import logging
 import tempfile
+import unicodedata
 
 import requests
 from django.conf import settings
@@ -26,6 +27,14 @@ _SEASON_PATTERNS = [
     re.compile(r"\bs(\d{1,2})\b", re.IGNORECASE),
 ]
 
+# Detecta la etiqueta de variante de español al final del nombre de archivo
+# (sin tildes), con o sin "Español" adelante, entre paréntesis o con guiones.
+# Ej: "Ep01 (Español Latinoamérica)", "Ep01-Español-España", "Ep01 Latino".
+_LANGUAGE_SUFFIX_PATTERN = re.compile(
+    r"[\s\-\(]*(?:espanol[\s\-]*)?\(?(latinoamerica|latino|espana|castellano)\)?\s*$",
+    re.IGNORECASE,
+)
+
 
 def _headers() -> dict:
     return {
@@ -47,16 +56,31 @@ def build_search_title(path: str) -> str:
     de la carpeta padre como nombre de la serie (ej. ".../Breaking Bad/Season 01"
     → "Breaking Bad S01"). Si no encuentra temporada, devuelve el nombre de la
     carpeta tal cual — el usuario siempre puede editar el título antes de buscar.
+
+    Caso especial: si la carpeta de temporada está directamente bajo
+    SERIES_ROOT (sin una carpeta dedicada a la serie), el "padre" sería la
+    raíz de series y daría un título genérico (ej. "Series S01"). En ese caso
+    se usa el propio nombre de carpeta, quitándole la parte de temporada.
     """
-    clean_path = path.rstrip("/")
+    clean_path = os.path.normpath(path.rstrip("/"))
     folder_name = os.path.basename(clean_path)
-    parent_name = os.path.basename(os.path.dirname(clean_path))
+    parent_path = os.path.dirname(clean_path)
+    series_root = os.path.normpath(settings.SERIES_ROOT)
 
     for pattern in _SEASON_PATTERNS:
         match = pattern.search(folder_name)
         if match:
             season = int(match.group(1))
-            series_name = _clean_name(parent_name) or _clean_name(folder_name)
+            if parent_path and parent_path != series_root:
+                series_name = _clean_name(os.path.basename(parent_path))
+            else:
+                logger.debug(
+                    "Carpeta de temporada '%s' directo en SERIES_ROOT — se usa el propio nombre",
+                    folder_name,
+                )
+                series_name = _clean_name(pattern.sub("", folder_name))
+            if not series_name:
+                series_name = _clean_name(folder_name)
             title = f"{series_name} S{season:02d}"
             logger.debug("Título sugerido desde carpeta '%s': '%s'", folder_name, title)
             return title
@@ -138,6 +162,67 @@ def download_subtitle(subtitle_id: str) -> bytes | None:
         return None
 
 
+def _strip_accents(text: str) -> str:
+    """Quita tildes/diacríticos para que la detección de variante no dependa de ellos."""
+    normalized = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in normalized if not unicodedata.combining(c))
+
+
+def _detect_language_variant(filename: str) -> tuple[str, str | None]:
+    """
+    Busca al final del nombre de archivo (sin extensión) una etiqueta de
+    variante de español: Latinoamérica/Latino o España/Castellano, con o sin
+    tildes, entre paréntesis o separada por guiones.
+
+    Retorna (base_key, variante), donde variante es "latam", "spain" o None
+    si no se detectó ninguna etiqueta. `base_key` es el nombre sin esa
+    etiqueta, usado para agrupar variantes del mismo episodio.
+    """
+    base = os.path.splitext(filename)[0]
+    normalized = _strip_accents(base).lower()
+    match = _LANGUAGE_SUFFIX_PATTERN.search(normalized)
+    if not match:
+        return base, None
+
+    variant_word = match.group(1)
+    variant = "latam" if variant_word in ("latinoamerica", "latino") else "spain"
+    base_key = normalized[: match.start()].strip()
+    return base_key, variant
+
+
+def _select_names_to_keep(names: list[str]) -> set[str]:
+    """
+    Agrupa los nombres de archivo por episodio (mismo nombre sin la etiqueta
+    de variante de idioma). Cuando un grupo tiene tanto versión Latinoamérica
+    como España, se descarta la de España y se conserva solo la de
+    Latinoamérica. Los archivos sin etiqueta detectada, o cuyo grupo no tiene
+    alternativa Latinoamérica, se conservan tal cual.
+    """
+    groups: dict[str, dict[str, str]] = {}
+    plain: list[str] = []
+
+    for name in names:
+        base_key, variant = _detect_language_variant(name)
+        if variant is None:
+            plain.append(name)
+            continue
+        groups.setdefault(base_key, {})[variant] = name
+
+    keep = set(plain)
+    for variants in groups.values():
+        if "latam" in variants:
+            keep.add(variants["latam"])
+            if "spain" in variants:
+                logger.info(
+                    "Variante España descartada a favor de Latinoamérica: '%s'",
+                    variants["spain"],
+                )
+        else:
+            keep.update(variants.values())
+
+    return keep
+
+
 def _write_member(data: bytes, name: str, dest_folder: str) -> str:
     dest_path = os.path.join(dest_folder, name)
     if os.path.exists(dest_path):
@@ -166,11 +251,19 @@ def extract_all_subtitles(content: bytes, dest_folder: str) -> list[str]:
     if is_zip:
         try:
             with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                candidates = []
                 for member in zf.namelist():
                     if not member.lower().endswith(extensions):
                         continue
                     name = os.path.basename(member)
                     if not name:
+                        continue
+                    candidates.append((member, name))
+
+                names_to_keep = _select_names_to_keep([name for _, name in candidates])
+                for member, name in candidates:
+                    if name not in names_to_keep:
+                        logger.debug("Omitido por filtro de idioma (ZIP): '%s'", name)
                         continue
                     saved.append(_write_member(zf.read(member), name, dest_folder))
         except zipfile.BadZipFile as e:
@@ -187,11 +280,19 @@ def extract_all_subtitles(content: bytes, dest_folder: str) -> list[str]:
                 tmp.write(content)
                 tmp_path = tmp.name
             with rarfile.RarFile(tmp_path) as rf:
+                candidates = []
                 for member in rf.namelist():
                     if not member.lower().endswith(extensions):
                         continue
                     name = os.path.basename(member)
                     if not name:
+                        continue
+                    candidates.append((member, name))
+
+                names_to_keep = _select_names_to_keep([name for _, name in candidates])
+                for member, name in candidates:
+                    if name not in names_to_keep:
+                        logger.debug("Omitido por filtro de idioma (RAR): '%s'", name)
                         continue
                     saved.append(_write_member(rf.read(member), name, dest_folder))
         except Exception as e:

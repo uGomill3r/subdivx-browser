@@ -295,6 +295,8 @@
 
   // ── Árbol de carpetas ──────────────────────────────────────────────────────
 
+  let selectedFolderRow = null; // única fila con "selected" — evita que queden varias marcadas
+
   function createFolderNode(name, parentPath) {
     const fullPath = joinPath(parentPath, name);
 
@@ -321,8 +323,9 @@
 
     row.addEventListener("click", (evt) => {
       if (evt.target.closest(".series-folder-toggle")) return;
-      document.querySelectorAll(".series-folder-row.selected").forEach((el) => el.classList.remove("selected"));
+      if (selectedFolderRow) selectedFolderRow.classList.remove("selected");
       row.classList.add("selected");
+      selectedFolderRow = row;
       selectedPathInput.value = fullPath;
       fetchAndDisplayFiles(fullPath);
       fetchSuggestedTitle(fullPath);
