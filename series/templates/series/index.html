@@ -52,11 +52,34 @@
 
 </div>
 
+<!-- Panel de búsqueda/descarga de subtítulos para la carpeta seleccionada -->
+<div class="series-panel series-subtitles-panel">
+  <div class="series-panel-header">
+    <span>Buscar subtítulos</span>
+  </div>
+
+  <label class="series-field-label" for="series-suggested-title">Título de búsqueda</label>
+  <input type="text" id="series-suggested-title" class="input-dark series-path-input" placeholder="Seleccioná una carpeta…">
+
+  <div class="series-search-row">
+    <input type="text" id="series-keyword" class="input-dark" placeholder="Keyword (opcional, filtra el título)">
+    <input type="text" id="series-free-query" class="input-dark" placeholder="Búsqueda libre (opcional, ignora el título)">
+    <button type="button" id="series-search-btn" class="btn-accent">Buscar</button>
+  </div>
+
+  <div id="series-search-status" class="series-status hidden"></div>
+
+  <div id="series-search-results" class="series-search-results"></div>
+</div>
+
 <!-- Contenedor de config: URLs de la API + path inicial, leídos por main.js -->
 <div id="series-app"
      data-api-folders="{% url 'series:list_folders' %}"
      data-api-files="{% url 'series:list_files' %}"
      data-api-rename="{% url 'series:rename_files' %}"
+     data-api-suggest-title="{% url 'series:suggest_title' %}"
+     data-api-subtitle-search="{% url 'series:subtitle_search' %}"
+     data-api-subtitle-download="{% url 'series:subtitle_download' %}"
      data-initial-path="{{ series_root }}"
      style="display:none;">
   {% csrf_token %}
@@ -155,6 +178,51 @@
   .series-status.ok { border: 1px solid var(--success); color: var(--success); }
   .series-status.error { border: 1px solid var(--danger); color: var(--danger); }
   .series-status.hidden { display: none; }
+
+  .series-subtitles-panel { margin-top: 1rem; }
+  .series-field-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+  .series-search-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+  @media (max-width: 720px) {
+    .series-search-row { grid-template-columns: 1fr; }
+  }
+  .series-search-results {
+    margin-top: 1rem;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+  .series-sub-result {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.7rem 0.9rem;
+    margin-bottom: 0.6rem;
+  }
+  .series-sub-result-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .series-sub-title { font-weight: 600; color: var(--text); font-size: 0.9rem; }
+  .series-sub-downloads { color: var(--text-muted); font-size: 0.78rem; white-space: nowrap; }
+  .series-sub-uploader { color: var(--text-muted); font-size: 0.78rem; margin-top: 0.15rem; }
+  .series-sub-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.4rem;
+    white-space: pre-wrap;
+  }
+  .series-sub-download-btn { margin-top: 0.6rem; }
 </style>
 
 <!-- SortableJS: reordenar videos/subtítulos con drag & drop -->

@@ -294,7 +294,8 @@ Reemplaza a la app externa **media-renamer** (descontinuada), absorbida como la 
 - Árbol de carpetas expandible (no drill-down de una sola carpeta) — cada nodo carga sus hijos on-demand al expandir.
 - Reorder de videos/subtítulos con **SortableJS** (CDN, pineado en `1.15.2`, `cdnjs.cloudflare.com`) — no se agregó como dependencia global del proyecto, solo se carga en `series/templates/series/index.html`.
 - Tabs Videos/Subtítulos: toggle manual en JS (el proyecto no carga el bundle JS de Bootstrap, solo su CSS).
-- **Pendiente (no implementado todavía)**: el panel de búsqueda/descarga de subtítulos (título sugerido editable, input de keyword, lista de resultados, botón "Descargar") no está conectado a la UI — el backend (`suggest_title_view`, `subtitle_search_view`, `subtitle_download_view`) ya funciona y se puede probar directo contra los endpoints, pero falta el HTML+JS que los use desde `index.html`/`main.js`.
+- **Panel de búsqueda/descarga de subtítulos** (`series-subtitles-panel` en `index.html`, debajo del explorador): al seleccionar una carpeta se pide `api/suggest-title/` y se precarga en un input editable. Botón "Buscar" dispara `api/subtitle-search/` (título + keyword/free_query opcionales) y renderiza cada resultado (título, uploader, cantidad de descargas, descripción) con un botón "Descargar". Al descargar, llama a `api/subtitle-download/` con `{subtitle_id, path}` y, si sale bien, refresca el listado de archivos (`fetchAndDisplayFiles`) para reordenar/renombrar con lo ya existente.
+- **Nota de implementación**: el JS toma el identificador de cada resultado como `item.id` (con fallback a `item.subtitle_id`) y las URLs de los tres endpoints se leen de `data-api-suggest-title`, `data-api-subtitle-search`, `data-api-subtitle-download` en `#series-app` (mismo patrón que los atributos ya existentes) — verificar que los nombres de URL en `series/urls.py` sean `series:suggest_title`, `series:subtitle_search`, `series:subtitle_download`, o ajustar el template si difieren.
 
 ### Selector de sección en el topbar (`browser/templates/browser/base.html`)
 - Dos links `.topbar-section-link` ("Películas" / "Series") junto al brand, resaltando el activo vía `request.resolver_match.namespace` (requiere el context processor `django.template.context_processors.request`, ya configurado).
@@ -563,14 +564,12 @@ Los siguientes archivos existen en `browser/static/browser/` pero no se referenc
 - Indicador visual de subtítulo `.en.srt` en la lista de carpetas
 - Aplicar el reintento sin año también en `search_with_fallback` (rama keyword)
 - Extender la captura manual de cookie de Cloudflare a otros proveedores (hoy solo subx-bridge)
-- **Series — falta conectar el panel de búsqueda/descarga de subtítulos a la UI**: backend completo y probado (`suggest_title_view`, `subtitle_search_view`, `subtitle_download_view`), falta agregar en `series/templates/series/index.html` + `series/static/series/main.js` el HTML/JS que:
-  1. Al seleccionar una carpeta, pide el título sugerido (`api/suggest-title/`) y lo muestra en un input editable.
-  2. Dispara la búsqueda (`api/subtitle-search/`) con ese título (+ keyword/free_query opcionales) y renderiza los resultados (título, uploader, descargas — mismos campos que `SubtitleResult`).
-  3. Al elegir un resultado, llama a `api/subtitle-download/` con `{subtitle_id, path}` y, al terminar, refresca el listado de archivos de la carpeta (mismo `fetchAndDisplayFiles` que ya existe) para que los subtítulos extraídos aparezcan listos para reordenar/renombrar.
 - Series — revisar si `build_search_title()` necesita más patrones de temporada según las convenciones reales de nombres de carpeta que se usen (hoy: `season/temporada/temp N` y `SN`).
+- Series — verificar que los nombres de URL usados en el panel de búsqueda (`series:suggest_title`, `series:subtitle_search`, `series:subtitle_download`) coincidan con `series/urls.py`.
 
 ### Completados
 - ~~Soporte para más extensiones de video (.mkv, .avi)~~ → `.mkv` soportado; `.avi` no
 - ~~Refresco de contadores al mover carpeta~~ → resuelto con re-render del parcial
-- ~~Integrar media-renamer como sección Series~~ → app `series` con explorador, drag&drop y rename por posición funcionando; búsqueda/descarga de subtítulos con backend listo, UI pendiente (ver arriba)
+- ~~Integrar media-renamer como sección Series~~ → app `series` con explorador, drag&drop, rename por posición y panel de búsqueda/descarga de subtítulos, todo conectado a la UI
 - ~~Switch de biblioteca desde el index~~ → resuelto con cookie firmada
+- ~~Series — conectar el panel de búsqueda/descarga de subtítulos a la UI~~ → agregado en `index.html`/`main.js` (ver sección "Sección Series" arriba)

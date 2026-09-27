@@ -5,6 +5,9 @@
   const API_FOLDERS = app.dataset.apiFolders;
   const API_FILES = app.dataset.apiFiles;
   const API_RENAME = app.dataset.apiRename;
+  const API_SUGGEST_TITLE = app.dataset.apiSuggestTitle;
+  const API_SUBTITLE_SEARCH = app.dataset.apiSubtitleSearch;
+  const API_SUBTITLE_DOWNLOAD = app.dataset.apiSubtitleDownload;
   const INITIAL_PATH = app.dataset.initialPath;
 
   const treeEl = document.getElementById("series-tree");
@@ -16,6 +19,13 @@
   const refreshBtn = document.getElementById("series-refresh");
   const renameSubsBtn = document.getElementById("series-rename-subs");
   const renameVideosBtn = document.getElementById("series-rename-videos");
+
+  const suggestedTitleInput = document.getElementById("series-suggested-title");
+  const keywordInput = document.getElementById("series-keyword");
+  const freeQueryInput = document.getElementById("series-free-query");
+  const searchBtn = document.getElementById("series-search-btn");
+  const searchStatusDiv = document.getElementById("series-search-status");
+  const searchResultsDiv = document.getElementById("series-search-results");
 
   function csrfToken() {
     const input = app.querySelector('input[name="csrfmiddlewaretoken"]');
@@ -35,6 +45,16 @@
 
   function clearStatus() {
     statusDiv.classList.add("hidden");
+  }
+
+  function showSearchStatus(message, isError) {
+    searchStatusDiv.textContent = message;
+    searchStatusDiv.classList.remove("hidden", "ok", "error");
+    searchStatusDiv.classList.add(isError ? "error" : "ok");
+  }
+
+  function clearSearchStatus() {
+    searchStatusDiv.classList.add("hidden");
   }
 
   // ── Listado de videos/subtítulos con drag & drop ──────────────────────────
@@ -119,6 +139,147 @@
     }
   }
 
+  // ── Búsqueda y descarga de subtítulos ─────────────────────────────────────
+
+  async function fetchSuggestedTitle(path) {
+    suggestedTitleInput.value = "Cargando…";
+    searchResultsDiv.innerHTML = "";
+    clearSearchStatus();
+    try {
+      const resp = await fetch(`${API_SUGGEST_TITLE}?path=${encodeURIComponent(path)}`);
+      if (!resp.ok) throw new Error("Respuesta no exitosa del servidor.");
+      const data = await resp.json();
+      suggestedTitleInput.value = data.title || "";
+    } catch (err) {
+      console.error("Error al sugerir título:", err);
+      suggestedTitleInput.value = "";
+      showSearchStatus("No se pudo sugerir un título. Escribilo manualmente.", true);
+    }
+  }
+
+  function renderSearchResults(results, path) {
+    searchResultsDiv.innerHTML = "";
+
+    if (!results || results.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "series-muted";
+      empty.textContent = "Sin resultados.";
+      searchResultsDiv.appendChild(empty);
+      return;
+    }
+
+    results.forEach((item) => {
+      const subtitleId = item.id !== undefined ? item.id : item.subtitle_id;
+
+      const card = document.createElement("div");
+      card.className = "series-sub-result";
+
+      const header = document.createElement("div");
+      header.className = "series-sub-result-header";
+
+      const title = document.createElement("span");
+      title.className = "series-sub-title";
+      title.textContent = item.title || "(sin título)";
+
+      const downloads = document.createElement("span");
+      downloads.className = "series-sub-downloads";
+      downloads.innerHTML = `<i class="bi bi-download"></i> ${item.downloads != null ? item.downloads : "?"}`;
+
+      header.appendChild(title);
+      header.appendChild(downloads);
+
+      const uploader = document.createElement("div");
+      uploader.className = "series-sub-uploader";
+      uploader.textContent = `por ${item.uploader_name || "desconocido"}`;
+
+      const desc = document.createElement("div");
+      desc.className = "series-sub-desc";
+      desc.textContent = item.description || "";
+
+      const downloadBtn = document.createElement("button");
+      downloadBtn.type = "button";
+      downloadBtn.className = "btn-accent series-sub-download-btn";
+      downloadBtn.textContent = "Descargar";
+      downloadBtn.addEventListener("click", () => downloadSubtitle(subtitleId, path, downloadBtn));
+
+      card.appendChild(header);
+      card.appendChild(uploader);
+      if (item.description) card.appendChild(desc);
+      card.appendChild(downloadBtn);
+
+      searchResultsDiv.appendChild(card);
+    });
+  }
+
+  async function performSearch() {
+    const path = selectedPathInput.value;
+    if (!path) {
+      showSearchStatus("Seleccioná una carpeta primero.", true);
+      return;
+    }
+
+    const title = suggestedTitleInput.value.trim();
+    const keyword = keywordInput.value.trim();
+    const freeQuery = freeQueryInput.value.trim();
+
+    if (!title && !freeQuery) {
+      showSearchStatus("Ingresá un título o una búsqueda libre.", true);
+      return;
+    }
+
+    clearSearchStatus();
+    searchResultsDiv.innerHTML = '<p class="series-muted">Buscando…</p>';
+    searchBtn.disabled = true;
+
+    const params = new URLSearchParams({ title, keyword, free_query: freeQuery });
+
+    try {
+      const resp = await fetch(`${API_SUBTITLE_SEARCH}?${params.toString()}`);
+      if (!resp.ok) throw new Error("Respuesta no exitosa del servidor.");
+      const data = await resp.json();
+      renderSearchResults(data.results || data, path);
+    } catch (err) {
+      console.error("Error en la búsqueda de subtítulos:", err);
+      searchResultsDiv.innerHTML = "";
+      showSearchStatus("Error al buscar subtítulos. Revisá la consola del navegador.", true);
+    } finally {
+      searchBtn.disabled = false;
+    }
+  }
+
+  async function downloadSubtitle(subtitleId, path, btn) {
+    if (!subtitleId) {
+      showSearchStatus("No se pudo identificar el subtítulo elegido.", true);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Descargando…";
+    clearSearchStatus();
+
+    try {
+      const resp = await fetch(API_SUBTITLE_DOWNLOAD, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrfToken(),
+        },
+        body: JSON.stringify({ subtitle_id: subtitleId, path }),
+      });
+      const result = await resp.json();
+      showSearchStatus(result.message || (resp.ok ? "Subtítulos descargados y extraídos." : "Error al descargar."), !resp.ok);
+      if (resp.ok) fetchAndDisplayFiles(path);
+    } catch (err) {
+      console.error("Error al descargar subtítulo:", err);
+      showSearchStatus("Ocurrió un error inesperado. Revisá la consola del navegador.", true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Descargar";
+    }
+  }
+
+  searchBtn.addEventListener("click", performSearch);
+
   // ── Árbol de carpetas ──────────────────────────────────────────────────────
 
   function createFolderNode(name, parentPath) {
@@ -151,6 +312,7 @@
       row.classList.add("selected");
       selectedPathInput.value = fullPath;
       fetchAndDisplayFiles(fullPath);
+      fetchSuggestedTitle(fullPath);
     });
 
     toggle.addEventListener("click", async () => {
@@ -200,6 +362,7 @@
         subfolders.forEach((sub) => treeEl.appendChild(createFolderNode(sub, INITIAL_PATH)));
       }
       fetchAndDisplayFiles(INITIAL_PATH);
+      fetchSuggestedTitle(INITIAL_PATH);
     } catch (err) {
       console.error("Error al cargar el árbol inicial:", err);
       treeEl.innerHTML = '<li class="series-error">Error al cargar SERIES_ROOT. Revisá la configuración del servidor.</li>';
