@@ -5,7 +5,7 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
-def _resolve_safe_path(path: str) -> str | None:
+def resolve_safe_path(path: str) -> str | None:
     """
     Resuelve `path` a una ruta absoluta y verifica que quede dentro de
     SERIES_ROOT (protección contra path traversal vía query params/body).
@@ -27,7 +27,7 @@ def list_subfolders(path: str) -> list[str]:
     Lista vacía si la ruta es inválida, está fuera de SERIES_ROOT o no es
     accesible.
     """
-    safe_path = _resolve_safe_path(path)
+    safe_path = resolve_safe_path(path)
     if safe_path is None:
         return []
 
@@ -50,7 +50,7 @@ def list_files_in_path(path: str) -> dict:
     y ordenados alfabéticamente. Ignora archivos ocultos.
     Listas vacías si la ruta es inválida o inaccesible.
     """
-    safe_path = _resolve_safe_path(path)
+    safe_path = resolve_safe_path(path)
     if safe_path is None:
         return {"video_files": [], "sub_files": []}
 
@@ -93,7 +93,7 @@ def rename_files(action: str, path: str, video_files: list[str], sub_files: list
 
     Retorna {"success": bool, "message": str}.
     """
-    safe_path = _resolve_safe_path(path)
+    safe_path = resolve_safe_path(path)
     if safe_path is None:
         return {"success": False, "message": "Ruta inválida o fuera de la biblioteca de series."}
 
