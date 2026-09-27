@@ -70,7 +70,7 @@ def list_files_in_path(path: str) -> dict:
             continue
 
         ext = os.path.splitext(entry)[1].lower()
-        if ext in settings.VIDEO_EXTENSIONS:
+        if ext in settings.SERIES_VIDEO_EXTENSIONS:
             video_files.append(entry)
         elif ext in settings.SERIES_SUBTITLE_EXTENSIONS:
             sub_files.append(entry)

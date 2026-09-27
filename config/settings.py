@@ -88,6 +88,7 @@ MOVE_SOURCE_PATH = os.getenv("MOVE_SOURCE_PATH", "/mnt/HDD/Descargas")
 MOVE_DEST_PATH = os.getenv("MOVE_DEST_PATH", "/mnt/HDD/Library/Movies")
 
 VIDEO_EXTENSIONS = [".mp4", ".mkv"]
+SERIES_VIDEO_EXTENSIONS = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv"]
 
 # ── Sección Series (independiente de Películas — no comparten carpetas) ────
 # Raíz de la biblioteca de series. A diferencia de MEDIA_ROOT_PATH (que solo
