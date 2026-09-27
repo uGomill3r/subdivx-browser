@@ -28,10 +28,11 @@ _SEASON_PATTERNS = [
 ]
 
 # Detecta la etiqueta de variante de español al final del nombre de archivo
-# (sin tildes), con o sin "Español" adelante, entre paréntesis o con guiones.
-# Ej: "Ep01 (Español Latinoamérica)", "Ep01-Español-España", "Ep01 Latino".
+# (sin tildes), con o sin "Español" adelante, entre paréntesis (incluso
+# anidados, ej. "(Español (España))") o con guiones.
+# Ej: "Ep01 (Español (Latinoamérica))", "Ep01-Español-España", "Ep01 Latino".
 _LANGUAGE_SUFFIX_PATTERN = re.compile(
-    r"[\s\-\(]*(?:espanol[\s\-]*)?\(?(latinoamerica|latino|espana|castellano)\)?\s*$",
+    r"[\s\-\(]*(?:espanol[\s\-\(]*)?\(*(latinoamerica|latino|espana|castellano)\)*\s*$",
     re.IGNORECASE,
 )
 
