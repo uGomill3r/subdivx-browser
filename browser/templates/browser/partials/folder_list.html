@@ -22,7 +22,7 @@
   <!-- Pestañas -->
   <div style="display:flex; gap:0.4rem; margin-bottom:1.25rem;">
     <button
-      class="tab-btn tab-active"
+      class="tab-btn{% if active_tab != 'done' %} tab-active{% endif %}"
       id="tab-pending"
       onclick="switchTab('pending')"
     >
@@ -37,7 +37,7 @@
       ">{{ pending_count }}</span>
     </button>
     <button
-      class="tab-btn"
+      class="tab-btn{% if active_tab == 'done' %} tab-active{% endif %}"
       id="tab-done"
       onclick="switchTab('done')"
     >
@@ -54,14 +54,14 @@
   </div>
 
   <!-- Lista sin subtítulo -->
-  <div id="list-pending">
+  <div id="list-pending" style="{% if active_tab == 'done' %}display:none;{% endif %}">
     {% for folder in folders %}{% if not folder.has_subtitle %}
       {% include "browser/partials/folder_card.html" with folder=folder can_move=can_move %}
     {% endif %}{% endfor %}
   </div>
 
   <!-- Lista con subtítulo -->
-  <div id="list-done" style="display:none;">
+  <div id="list-done" style="{% if active_tab != 'done' %}display:none;{% endif %}">
     {% for folder in folders %}{% if folder.has_subtitle %}
       {% include "browser/partials/folder_card.html" with folder=folder can_move=can_move %}
     {% endif %}{% endfor %}

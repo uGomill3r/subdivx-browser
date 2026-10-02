@@ -66,19 +66,23 @@ def _can_move_to_library() -> bool:
     return os.path.normpath(get_media_root()) == os.path.normpath(settings.MOVE_SOURCE_PATH)
 
 
-def _folder_list_context(folders: list, can_move: bool, move_error: str = "") -> dict:
+def _folder_list_context(folders: list, can_move: bool, move_error: str = "", active_tab: str = "pending") -> dict:
     """
     Arma el contexto del parcial folder_list.html, incluyendo los contadores
     de las pestañas calculados en el servidor (única fuente de verdad).
     """
     done = sum(1 for f in folders if f.has_subtitle)
     pending = len(folders) - done
+    # Pestaña activa: solo valores válidos; si "done" quedó vacía, vuelve a "pending"
+    if active_tab not in ("pending", "done") or (active_tab == "done" and done == 0):
+        active_tab = "pending"
     logger.debug("Contadores de pestañas — sin subtítulo: %d, con subtítulo: %d", pending, done)
     ctx = {
         "folders": folders,
         "can_move": can_move,
         "pending_count": pending,
         "done_count": done,
+        "active_tab": active_tab,
     }
     if move_error:
         ctx["move_error"] = move_error
@@ -108,6 +112,9 @@ def move_folder_view(request: HttpRequest, folder_name: str) -> HttpResponse:
     en el contenedor y los contadores se recalculen). Si tras mover ya no
     quedan carpetas en la biblioteca activa, envía HX-Redirect a "/".
     """
+    # Pestaña desde la que se movió (para mantenerla tras el refresco)
+    active_tab = request.POST.get("tab", "pending")
+
     if not _can_move_to_library():
         logger.warning(
             "Intento de mover carpeta '%s' con media_root distinta de MOVE_SOURCE_PATH", folder_name
@@ -116,13 +123,14 @@ def move_folder_view(request: HttpRequest, folder_name: str) -> HttpResponse:
         return render(request, "browser/partials/folder_list.html", _folder_list_context(
             folders, False,
             "Esta acción solo está disponible cuando la biblioteca activa es la carpeta de Descargas.",
+            active_tab,
         ), status=403)
 
     folder = get_folder_info(folder_name)
     if not folder:
         folders = list_media_folders()
         return render(request, "browser/partials/folder_list.html",
-                      _folder_list_context(folders, True, "Carpeta no encontrada."), status=404)
+                      _folder_list_context(folders, True, "Carpeta no encontrada.", active_tab), status=404)
 
     ok, result = move_folder_to_library(folder)
 
@@ -131,6 +139,7 @@ def move_folder_view(request: HttpRequest, folder_name: str) -> HttpResponse:
         folders = list_media_folders()
         return render(request, "browser/partials/folder_list.html", _folder_list_context(
             folders, True, f"No se pudo mover “{folder.title}”: {result}",
+            active_tab,
         ), status=500)
 
     logger.info("Carpeta '%s' movida a Library — destino: '%s'", folder_name, result)
@@ -144,7 +153,7 @@ def move_folder_view(request: HttpRequest, folder_name: str) -> HttpResponse:
         return response
 
     return render(request, "browser/partials/folder_list.html",
-                  _folder_list_context(remaining, _can_move_to_library()))
+                  _folder_list_context(remaining, _can_move_to_library(), active_tab=active_tab))
 
 
 @require_http_methods(["POST"])

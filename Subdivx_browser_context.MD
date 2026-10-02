@@ -535,7 +535,7 @@ Los siguientes archivos existen en `browser/static/browser/` pero no se referenc
 ### Refresco de lista al mover carpeta
 - `move_folder_view`: en éxito devuelve el parcial completo `folder_list.html` (o `HX-Redirect: /` si no quedan carpetas). En error, el parcial con `move_error`.
 - `folder_card.html`: el botón "mover" apunta a `#folder-list-container` con `hx-swap="innerHTML"`.
-- `folder_list.html`: los contadores se renderizan desde `pending_count`/`done_count` del contexto (ya no se cuentan con JS; ver "Bugs corregidos").
+- `folder_list.html`: los contadores se renderizan desde `pending_count`/`done_count` del contexto (ya no se cuentan con JS; ver "Bugs corregidos"). La pestaña activa se conserva tras mover: el botón envía `tab` (`pending`/`done`) vía `hx-vals` y la vista la devuelve como `active_tab`.
 
 ### Switch de biblioteca
 - `browser/middleware.py` (nuevo): `MediaRootOverrideMiddleware` + `set_media_root_cookie` + `get_current_media_root_override`.
@@ -561,6 +561,7 @@ Los siguientes archivos existen en `browser/static/browser/` pero no se referenc
 ---
 
 - **Contador "Con subtítulo" incoherente al mover a biblioteca**: el contador se recalculaba con JS inline (`querySelectorAll` + `getElementById`) durante el swap de HTMX, cuando el DOM viejo y el nuevo pueden coexistir (IDs duplicados `count-pending`/`count-done`, tarjetas contadas dos veces). Fix: los contadores se calculan en el servidor (`_folder_list_context` en `views.py`) y se renderizan directo en `folder_list.html`; se eliminó `sdxUpdateFolderCounts()`.
+- **Al mover desde "Con subtítulo" la lista quedaba oculta**: el parcial siempre se re-renderizaba con "Sin subtítulo" activa. Fix: `move_folder_view` recibe `tab` y `folder_list.html` renderiza la pestaña activa (`active_tab`); si "Con subtítulo" queda vacía, vuelve a "Sin subtítulo".
 
 ---
 

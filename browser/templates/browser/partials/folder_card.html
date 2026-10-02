@@ -26,6 +26,7 @@
         hx-post="{% url 'browser:move_folder' folder.folder_name %}"
         hx-target="#folder-list-container"
         hx-swap="innerHTML"
+        hx-vals='{"tab": "{% if folder.has_subtitle %}done{% else %}pending{% endif %}"}'
         hx-confirm="¿Mover &quot;{{ folder.title }}&quot; a Library/Movies?"
         onclick="event.preventDefault(); event.stopPropagation();"
       ><i class="bi bi-box-arrow-in-right"></i></button>
