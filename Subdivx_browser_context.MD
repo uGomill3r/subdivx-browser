@@ -398,7 +398,7 @@ Flujo:
 
 - **Guard**: solo permite la operación si `get_media_root()` normalizado == `MOVE_SOURCE_PATH` normalizado.
 - **Botón**: `folder_card.html` lo muestra solo si `can_move` es `True`. Apunta a `#folder-list-container` con `hx-target` + `hx-swap="innerHTML"`.
-- **Éxito con carpetas restantes**: se renderiza `folder_list.html` completo con la lista actualizada. Los contadores de las pestañas "Sin subtítulo"/"Con subtítulo" se recalculan solos al re-ejecutarse el `<script>` inline del parcial.
+- **Éxito con carpetas restantes**: se renderiza `folder_list.html` completo con la lista actualizada. Los contadores de las pestañas "Sin subtítulo"/"Con subtítulo" los calcula el servidor (`_folder_list_context` → `pending_count`/`done_count`) y se renderizan en el parcial.
 - **Éxito sin carpetas restantes**: respuesta `204` con header `HX-Redirect: /` → el navegador redirige al inicio (evita quedar en una vista vacía).
 - **Error**: se renderiza `folder_list.html` con `move_error` seteado, que muestra un banner rojo arriba de las pestañas.
 
@@ -535,7 +535,7 @@ Los siguientes archivos existen en `browser/static/browser/` pero no se referenc
 ### Refresco de lista al mover carpeta
 - `move_folder_view`: en éxito devuelve el parcial completo `folder_list.html` (o `HX-Redirect: /` si no quedan carpetas). En error, el parcial con `move_error`.
 - `folder_card.html`: el botón "mover" apunta a `#folder-list-container` con `hx-swap="innerHTML"`.
-- `folder_list.html`: los contadores se recalculan solos al re-ejecutarse el `<script>` inline (no depende de un listener `htmx:afterSwap`).
+- `folder_list.html`: los contadores se renderizan desde `pending_count`/`done_count` del contexto (ya no se cuentan con JS; ver "Bugs corregidos").
 
 ### Switch de biblioteca
 - `browser/middleware.py` (nuevo): `MediaRootOverrideMiddleware` + `set_media_root_cookie` + `get_current_media_root_override`.
@@ -557,6 +557,10 @@ Los siguientes archivos existen en `browser/static/browser/` pero no se referenc
 - `settings.html`: comillas en `onclick="removeChip()"` mal escapadas generaban `removeChip(,0)`.
 - `settings.html`: separador `\n` en atributos `value=""` normalizado a espacio por el browser (HTML5). Cambiado a coma para `preferred_words`; JSON para `release_types` y `resolutions`.
 - **Sección Series stuck en "Cargando…" tras el deploy inicial**: la página renderizaba (`views — Acceso a sección Series` en el log) pero nunca se veía ninguna llamada a `list_folders_view` — `main.js` nunca se ejecutó porque `staticfiles/series/main.js` no existía todavía en `STATIC_ROOT` (nginx sirve `/static/` directo desde ahí en producción, no dinámicamente). Fix: correr `python manage.py collectstatic --noinput` de nuevo después de agregar la app `series` — no requiere reiniciar el servicio, solo Ctrl+Shift+R en el navegador si quedó cacheado el 404.
+
+---
+
+- **Contador "Con subtítulo" incoherente al mover a biblioteca**: el contador se recalculaba con JS inline (`querySelectorAll` + `getElementById`) durante el swap de HTMX, cuando el DOM viejo y el nuevo pueden coexistir (IDs duplicados `count-pending`/`count-done`, tarjetas contadas dos veces). Fix: los contadores se calculan en el servidor (`_folder_list_context` en `views.py`) y se renderizan directo en `folder_list.html`; se eliminó `sdxUpdateFolderCounts()`.
 
 ---
 

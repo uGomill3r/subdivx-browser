@@ -66,6 +66,25 @@ def _can_move_to_library() -> bool:
     return os.path.normpath(get_media_root()) == os.path.normpath(settings.MOVE_SOURCE_PATH)
 
 
+def _folder_list_context(folders: list, can_move: bool, move_error: str = "") -> dict:
+    """
+    Arma el contexto del parcial folder_list.html, incluyendo los contadores
+    de las pestañas calculados en el servidor (única fuente de verdad).
+    """
+    done = sum(1 for f in folders if f.has_subtitle)
+    pending = len(folders) - done
+    logger.debug("Contadores de pestañas — sin subtítulo: %d, con subtítulo: %d", pending, done)
+    ctx = {
+        "folders": folders,
+        "can_move": can_move,
+        "pending_count": pending,
+        "done_count": done,
+    }
+    if move_error:
+        ctx["move_error"] = move_error
+    return ctx
+
+
 def folder_list(request: HttpRequest) -> HttpResponse:
     """
     Retorna la lista de carpetas como HTML parcial para HTMX.
@@ -74,10 +93,8 @@ def folder_list(request: HttpRequest) -> HttpResponse:
     folders = list_media_folders()
     can_move = _can_move_to_library()
     logger.info("Lista de carpetas cargada — total: %d", len(folders))
-    return render(request, "browser/partials/folder_list.html", {
-        "folders": folders,
-        "can_move": can_move,
-    })
+    return render(request, "browser/partials/folder_list.html",
+                  _folder_list_context(folders, can_move))
 
 
 @require_http_methods(["POST"])
@@ -96,31 +113,25 @@ def move_folder_view(request: HttpRequest, folder_name: str) -> HttpResponse:
             "Intento de mover carpeta '%s' con media_root distinta de MOVE_SOURCE_PATH", folder_name
         )
         folders = list_media_folders()
-        return render(request, "browser/partials/folder_list.html", {
-            "folders": folders,
-            "can_move": False,
-            "move_error": "Esta acción solo está disponible cuando la biblioteca activa es la carpeta de Descargas.",
-        }, status=403)
+        return render(request, "browser/partials/folder_list.html", _folder_list_context(
+            folders, False,
+            "Esta acción solo está disponible cuando la biblioteca activa es la carpeta de Descargas.",
+        ), status=403)
 
     folder = get_folder_info(folder_name)
     if not folder:
         folders = list_media_folders()
-        return render(request, "browser/partials/folder_list.html", {
-            "folders": folders,
-            "can_move": True,
-            "move_error": "Carpeta no encontrada.",
-        }, status=404)
+        return render(request, "browser/partials/folder_list.html",
+                      _folder_list_context(folders, True, "Carpeta no encontrada."), status=404)
 
     ok, result = move_folder_to_library(folder)
 
     if not ok:
         logger.error("Fallo al mover '%s': %s", folder_name, result)
         folders = list_media_folders()
-        return render(request, "browser/partials/folder_list.html", {
-            "folders": folders,
-            "can_move": True,
-            "move_error": f"No se pudo mover “{folder.title}”: {result}",
-        }, status=500)
+        return render(request, "browser/partials/folder_list.html", _folder_list_context(
+            folders, True, f"No se pudo mover “{folder.title}”: {result}",
+        ), status=500)
 
     logger.info("Carpeta '%s' movida a Library — destino: '%s'", folder_name, result)
 
@@ -132,10 +143,8 @@ def move_folder_view(request: HttpRequest, folder_name: str) -> HttpResponse:
         response["HX-Redirect"] = "/"
         return response
 
-    return render(request, "browser/partials/folder_list.html", {
-        "folders": remaining,
-        "can_move": _can_move_to_library(),
-    })
+    return render(request, "browser/partials/folder_list.html",
+                  _folder_list_context(remaining, _can_move_to_library()))
 
 
 @require_http_methods(["POST"])

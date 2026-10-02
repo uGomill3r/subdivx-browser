@@ -34,7 +34,7 @@
         font-size:0.72rem;
         padding:0.05rem 0.35rem;
         margin-left:0.3rem;
-      "></span>
+      ">{{ pending_count }}</span>
     </button>
     <button
       class="tab-btn"
@@ -49,7 +49,7 @@
         font-size:0.72rem;
         padding:0.05rem 0.35rem;
         margin-left:0.3rem;
-      "></span>
+      ">{{ done_count }}</span>
     </button>
   </div>
 
@@ -94,19 +94,6 @@
       document.getElementById('tab-pending').classList.toggle('tab-active', tab === 'pending');
       document.getElementById('tab-done').classList.toggle('tab-active',    tab === 'done');
     }
-
-    // Recalcula los badges de conteo a partir del DOM actual.
-    // Se ejecuta en cada render del parcial (el script se re-ejecuta al
-    // insertarse via HTMX), por lo que no hace falta listener de afterSwap.
-    function sdxUpdateFolderCounts() {
-      const pending = document.querySelectorAll('#list-pending .folder-card').length;
-      const done    = document.querySelectorAll('#list-done .folder-card').length;
-      const elPending = document.getElementById('count-pending');
-      const elDone    = document.getElementById('count-done');
-      if (elPending) elPending.textContent = pending;
-      if (elDone)    elDone.textContent    = done;
-    }
-    sdxUpdateFolderCounts();
   </script>
 
 {% endif %}
